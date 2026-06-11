@@ -1,0 +1,77 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import '../../features/onboarding/screens/onboarding_screen.dart';
+import '../../features/auth/screens/login_screen.dart';
+import '../../features/auth/screens/register_screen.dart';
+import '../../features/auth/screens/forgot_password_screen.dart';
+import '../../features/home/screens/home_screen.dart';
+import '../../features/home/screens/riwayat_screen.dart';
+import '../../features/meeting/screens/mulai_rapat_screen.dart';
+import '../../features/recording/screens/recording_screen.dart';
+import '../../features/recording/screens/processing_screen.dart';
+import '../../features/recording/screens/assign_speaker_screen.dart';
+import '../../features/notula/screens/notula_screen.dart';
+import '../../features/notula/screens/edit_notula_screen.dart';
+import '../../features/notula/screens/transcript_screen.dart';
+import '../../features/notula/screens/audio_player_screen.dart';
+import '../../features/profil/screens/profil_screen.dart';
+import '../../features/profil/screens/upgrade_screen.dart';
+import '../providers/auth_provider.dart';
+
+final appRouterProvider = Provider<GoRouter>((ref) {
+  final authState = ref.watch(authProvider);
+
+  return GoRouter(
+    initialLocation: '/onboarding',
+    debugLogDiagnostics: false,
+    redirect: (context, state) {
+      final isLoggedIn  = authState.isAuthenticated;
+      final isAuthRoute = ['/login', '/register', '/forgot-password', '/onboarding']
+          .any((r) => state.matchedLocation.startsWith(r));
+
+      if (!isLoggedIn && !isAuthRoute) return '/login';
+      if (isLoggedIn && state.matchedLocation == '/login') return '/home';
+      return null;
+    },
+    routes: [
+      GoRoute(path: '/onboarding', builder: (_, __) => const OnboardingScreen()),
+      GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
+      GoRoute(path: '/register', builder: (_, __) => const RegisterScreen()),
+      GoRoute(path: '/forgot-password', builder: (_, __) => const ForgotPasswordScreen()),
+
+      GoRoute(path: '/home', builder: (_, __) => const HomeScreen()),
+      GoRoute(path: '/riwayat', builder: (_, __) => const RiwayatScreen()),
+      GoRoute(path: '/profil', builder: (_, __) => const ProfilScreen()),
+      GoRoute(path: '/upgrade', builder: (_, __) => const UpgradeScreen()),
+
+      GoRoute(path: '/mulai-rapat', builder: (_, __) => const MulaiRapatScreen()),
+      GoRoute(path: '/recording', builder: (_, s) {
+        final e = s.extra as Map<String, dynamic>? ?? {};
+        return RecordingScreen(title: e['title'] ?? 'Rapat Baru', agenda: e['agenda']);
+      }),
+      GoRoute(path: '/processing', builder: (_, s) {
+        final e = s.extra as Map<String, dynamic>? ?? {};
+        return ProcessingScreen(
+          title: e['title'] ?? 'Rapat Baru',
+          agenda: e['agenda'],
+          fileName: e['fileName'],
+          filePath: e['filePath'],
+          durationSeconds: e['durationSeconds'],
+        );
+      }),
+      GoRoute(path: '/assign-speaker', builder: (_, s) {
+        final e = s.extra as Map<String, dynamic>? ?? {};
+        return AssignSpeakerScreen(
+          title: e['title'] ?? 'Rapat Baru',
+          duration: e['duration'],
+          meetingId: e['meetingId'],
+        );
+      }),
+
+      GoRoute(path: '/rapat/:id', builder: (_, s) => NotulaScreen(meetingId: s.pathParameters['id']!)),
+      GoRoute(path: '/rapat/:id/edit-notula', builder: (_, s) => EditNotulaScreen(meetingId: s.pathParameters['id']!)),
+      GoRoute(path: '/rapat/:id/transcript', builder: (_, s) => TranscriptScreen(meetingId: s.pathParameters['id']!)),
+      GoRoute(path: '/rapat/:id/audio', builder: (_, s) => AudioPlayerScreen(meetingId: s.pathParameters['id']!)),
+    ],
+  );
+});
