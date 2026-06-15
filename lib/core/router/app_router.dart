@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../features/onboarding/screens/onboarding_screen.dart';
@@ -18,20 +19,44 @@ import '../../features/profil/screens/profil_screen.dart';
 import '../../features/profil/screens/upgrade_screen.dart';
 import '../providers/auth_provider.dart';
 
+/// Memberi tahu [GoRouter] untuk mengevaluasi ulang `redirect` saat status
+/// login berubah, tanpa membuat ulang seluruh instance [GoRouter].
+///
+/// Catatan: [appRouterProvider] sengaja TIDAK `ref.watch(authProvider)`.
+/// Mem-watch provider yang sering berubah akan membuat [Provider] ini
+/// rebuild dan mengembalikan instance [GoRouter] baru — instance baru
+/// selalu mulai dari `initialLocation`, sehingga navigasi pengguna
+/// (mis. dari `/profil`) ter-reset balik ke `/onboarding`.
+class _AuthListenable extends ChangeNotifier {
+  _AuthListenable(Ref ref) {
+    ref.listen(authProvider, (prev, next) {
+      if (prev?.isAuthenticated != next.isAuthenticated) notifyListeners();
+    });
+  }
+}
+
 final appRouterProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authProvider);
+  final authListenable = _AuthListenable(ref);
+  ref.onDispose(authListenable.dispose);
 
   return GoRouter(
     initialLocation: '/onboarding',
     debugLogDiagnostics: false,
+    refreshListenable: authListenable,
     redirect: (context, state) {
-      final isLoggedIn  = authState.isAuthenticated;
-      final isAuthRoute = ['/login', '/register', '/forgot-password', '/onboarding']
-          .any((r) => state.matchedLocation.startsWith(r));
+      final isLoggedIn = ref.read(authProvider).isAuthenticated;
+      final loc = state.matchedLocation;
 
-      if (!isLoggedIn && !isAuthRoute) return '/login';
-      if (isLoggedIn && state.matchedLocation == '/login') return '/home';
-      return null;
+      if (!isLoggedIn) {
+        final isPublicRoute = ['/login', '/register', '/forgot-password', '/onboarding']
+            .any((r) => loc.startsWith(r));
+        return isPublicRoute ? null : '/login';
+      }
+
+      // Sudah login — jangan biarkan terjebak di onboarding/login/register.
+      final isEntryRoute = ['/login', '/register', '/onboarding']
+          .any((r) => loc.startsWith(r));
+      return isEntryRoute ? '/home' : null;
     },
     routes: [
       GoRoute(path: '/onboarding', builder: (_, __) => const OnboardingScreen()),

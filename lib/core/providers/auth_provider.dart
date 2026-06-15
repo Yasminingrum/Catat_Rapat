@@ -6,18 +6,20 @@ import '../services/supabase_service.dart';
 // ── Auth State ────────────────────────────────────────────────
 
 class AuthState {
-  const AuthState({this.user, this.isLoading = false, this.error});
+  const AuthState({this.user, this.isLoading = false, this.error, this.message});
   final AppUser? user;
   final bool isLoading;
   final String? error;
+  final String? message;
 
   bool get isAuthenticated => user != null;
 
-  AuthState copyWith({AppUser? user, bool? isLoading, String? error}) =>
+  AuthState copyWith({AppUser? user, bool? isLoading, String? error, String? message}) =>
       AuthState(
         user: user ?? this.user,
         isLoading: isLoading ?? this.isLoading,
         error: error,
+        message: message,
       );
 }
 
@@ -57,7 +59,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<void> refreshProfile() => _loadProfile();
 
   Future<bool> login(String email, String password) async {
-    state = state.copyWith(isLoading: true, error: null);
+    state = state.copyWith(isLoading: true, error: null, message: null);
     try {
       final res = await _supa.signInWithEmail(email, password);
       if (res.user != null) {
@@ -68,30 +70,39 @@ class AuthNotifier extends StateNotifier<AuthState> {
       state = state.copyWith(isLoading: false, error: 'Login gagal');
       return false;
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(isLoading: false, error: _mapAuthError(e));
       return false;
     }
   }
 
   Future<bool> register(String name, String email, String password) async {
-    state = state.copyWith(isLoading: true, error: null);
+    state = state.copyWith(isLoading: true, error: null, message: null);
     try {
       final res = await _supa.signUpWithEmail(email, password, name: name);
-      if (res.user != null) {
+      if (res.user == null) {
+        state = state.copyWith(isLoading: false, error: 'Registrasi gagal');
+        return false;
+      }
+      if (res.session != null) {
+        // Konfirmasi email tidak diwajibkan — sesi langsung aktif.
         await _loadProfile();
         state = state.copyWith(isLoading: false);
         return true;
       }
-      state = state.copyWith(isLoading: false, error: 'Registrasi gagal');
-      return false;
+      // Akun berhasil dibuat tapi menunggu verifikasi email (belum ada sesi).
+      state = state.copyWith(
+          isLoading: false,
+          message: 'Registrasi berhasil! Silakan cek email Anda untuk tautan '
+              'verifikasi sebelum masuk.');
+      return true;
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(isLoading: false, error: _mapAuthError(e));
       return false;
     }
   }
 
   Future<bool> loginWithGoogle() async {
-    state = state.copyWith(isLoading: true, error: null);
+    state = state.copyWith(isLoading: true, error: null, message: null);
     try {
       final opened = await _supa.signInWithGoogle();
       state = state.copyWith(
@@ -99,9 +110,33 @@ class AuthNotifier extends StateNotifier<AuthState> {
           error: opened ? null : 'Tidak dapat membuka halaman login Google');
       return opened;
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(isLoading: false, error: _mapAuthError(e));
       return false;
     }
+  }
+
+  /// Mengubah pesan error Supabase menjadi pesan Bahasa Indonesia yang
+  /// lebih mudah dipahami pengguna.
+  String _mapAuthError(Object e) {
+    if (e is AuthException) {
+      switch (e.code) {
+        case 'email_not_confirmed':
+          return 'Email belum diverifikasi. Cek inbox (atau folder spam) '
+              'dan klik tautan konfirmasi sebelum masuk.';
+        case 'invalid_credentials':
+          return 'Email atau password salah.';
+        case 'user_already_exists':
+        case 'email_exists':
+          return 'Email sudah terdaftar. Silakan masuk atau gunakan email lain.';
+        case 'weak_password':
+          return 'Password terlalu lemah. Gunakan minimal 6 karakter.';
+        case 'over_email_send_rate_limit':
+        case 'over_request_rate_limit':
+          return 'Terlalu banyak percobaan. Coba lagi beberapa menit lagi.';
+      }
+      return e.message;
+    }
+    return e.toString();
   }
 
   Future<void> logout() async {

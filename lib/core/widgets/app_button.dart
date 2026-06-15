@@ -3,7 +3,7 @@ import '../constants/app_colors.dart';
 import '../constants/app_spacing.dart';
 import '../constants/app_text_styles.dart';
 
-enum AppButtonVariant { primary, secondary, text, danger }
+enum AppButtonVariant { primary, secondary, text, danger, success }
 
 class AppButton extends StatefulWidget {
   const AppButton({super.key, required this.label, required this.onPressed,
@@ -42,24 +42,30 @@ class _AppButtonState extends State<AppButton> with SingleTickerProviderStateMix
 
   Widget _buildBody() {
     final vPad = widget.small ? 10.0 : 16.0;
+    final hPad = widget.small ? 16.0 : 24.0;
     switch (widget.variant) {
       case AppButtonVariant.primary:
       case AppButtonVariant.danger:
+      case AppButtonVariant.success:
         final bg = _disabled ? AppColors.divider
-            : widget.variant == AppButtonVariant.danger ? AppColors.error : AppColors.primary;
+            : widget.variant == AppButtonVariant.danger ? AppColors.error
+            : widget.variant == AppButtonVariant.success ? AppColors.success
+            : AppColors.primary;
         final textColor = _disabled ? AppColors.textDisabled : Colors.white;
+        final shadow = widget.variant == AppButtonVariant.success
+            ? AppShadows.buttonSuccess : AppShadows.buttonPrimary;
         return AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           width: widget.isFullWidth ? double.infinity : null,
-          padding: EdgeInsets.symmetric(vertical: vPad, horizontal: 24),
+          padding: EdgeInsets.symmetric(vertical: vPad, horizontal: hPad),
           decoration: BoxDecoration(color: bg, borderRadius: AppRadius.md,
-              boxShadow: _disabled ? null : AppShadows.buttonPrimary),
+              boxShadow: _disabled ? null : shadow),
           child: _inner(textColor),
         );
       case AppButtonVariant.secondary:
         return Container(
           width: widget.isFullWidth ? double.infinity : null,
-          padding: EdgeInsets.symmetric(vertical: vPad - 2, horizontal: 24),
+          padding: EdgeInsets.symmetric(vertical: vPad - 2, horizontal: hPad),
           decoration: BoxDecoration(color: AppColors.surface, borderRadius: AppRadius.md,
               border: Border.all(color: AppColors.borderMedium)),
           child: _inner(AppColors.textPrimary));
@@ -70,15 +76,21 @@ class _AppButtonState extends State<AppButton> with SingleTickerProviderStateMix
     }
   }
 
-  Widget _inner(Color textColor) => Row(
-    mainAxisAlignment: MainAxisAlignment.center,
-    mainAxisSize: widget.isFullWidth ? MainAxisSize.max : MainAxisSize.min,
-    children: [
-      if (widget.isLoading) ...[
-        SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: textColor)),
-        const SizedBox(width: 8),
-      ] else if (widget.icon != null) ...[widget.icon!, const SizedBox(width: 8)],
-      Text(widget.label, style: AppTextStyles.displayXs(c: textColor, w: FontWeight.w600)),
-    ],
-  );
+  Widget _inner(Color textColor) {
+    final textStyle = widget.small
+        ? AppTextStyles.bodyMd(c: textColor, w: FontWeight.w600)
+        : AppTextStyles.displayXs(c: textColor, w: FontWeight.w600);
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisSize: widget.isFullWidth ? MainAxisSize.max : MainAxisSize.min,
+      children: [
+        if (widget.isLoading) ...[
+          SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: textColor)),
+          const SizedBox(width: 8),
+        ] else if (widget.icon != null) ...[widget.icon!, const SizedBox(width: 8)],
+        Flexible(child: Text(widget.label, style: textStyle,
+            maxLines: 1, overflow: TextOverflow.ellipsis)),
+      ],
+    );
+  }
 }

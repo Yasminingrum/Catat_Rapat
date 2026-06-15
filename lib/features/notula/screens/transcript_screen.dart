@@ -4,9 +4,11 @@ import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_spacing.dart';
 import '../../../core/constants/app_text_styles.dart';
+import '../../../core/localization/app_strings.dart';
 import '../../../core/models/meeting_model.dart';
 import '../../../core/providers/meeting_provider.dart';
 import '../../../core/widgets/app_bottom_nav.dart';
+import '../../../core/widgets/app_button.dart';
 
 class TranscriptScreen extends ConsumerStatefulWidget {
   const TranscriptScreen({super.key, required this.meetingId});
@@ -19,6 +21,7 @@ class _TranscriptScreenState extends ConsumerState<TranscriptScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final s = ref.watch(appStringsProvider);
     final meetingAsync = ref.watch(meetingProvider(widget.meetingId));
     final transcriptAsync = ref.watch(transcriptProvider(widget.meetingId));
 
@@ -36,7 +39,7 @@ class _TranscriptScreenState extends ConsumerState<TranscriptScreen> {
                   child: const Icon(Icons.arrow_back_ios_new_rounded, size:14, color: AppColors.textPrimary))),
               const SizedBox(width:12),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('Transkripsi Lengkap', style: AppTextStyles.displayMd()),
+                Text(s.transcriptTitle, style: AppTextStyles.displayMd()),
                 meetingAsync.when(data: (m) => Text(m?.title ?? '', style: AppTextStyles.bodySm(c: AppColors.textSecondary)),
                     loading: () => const SizedBox.shrink(), error: (_,__) => const SizedBox.shrink()),
               ])),
@@ -59,7 +62,7 @@ class _TranscriptScreenState extends ConsumerState<TranscriptScreen> {
                         if (p != null) ...[Container(width:8, height:8,
                             decoration: BoxDecoration(shape: BoxShape.circle,
                                 color: isActive ? Colors.white : p.color)), const SizedBox(width:6)],
-                        Text(p?.displayName ?? 'Semua', style: AppTextStyles.bodySm(
+                        Text(p?.displayName ?? s.transcriptAllSpeakers, style: AppTextStyles.bodySm(
                             c: isActive ? Colors.white : AppColors.textSecondary, w: FontWeight.w500)),
                       ])));
                 }).toList())) : const SizedBox.shrink(),
@@ -73,17 +76,33 @@ class _TranscriptScreenState extends ConsumerState<TranscriptScreen> {
             final filtered = _activeSpeaker == null ? lines
                 : lines.where((l) => l.speakerId == _activeSpeaker).toList();
             if (filtered.isEmpty) {
-              return Center(child: Text('Transkripsi masih kosong',
+              return Center(child: Text(s.transcriptEmpty,
                 style: AppTextStyles.bodyMd(c: AppColors.textSecondary)));
             }
             return ListView.separated(
-              padding: const EdgeInsets.fromLTRB(24,16,24,96),
+              padding: const EdgeInsets.fromLTRB(24,16,24,16),
               itemCount: filtered.length,
               separatorBuilder: (_,__) => const SizedBox(height:12),
               itemBuilder: (_, i) => _TranscriptTile(line: filtered[i]));
           },
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e,_) => Center(child: Text('Error: $e')))),
+          error: (e,_) => Center(child: Text(s.transcriptError(e))))),
+
+        // Edit Peserta Rapat
+        Container(
+          padding: EdgeInsets.fromLTRB(24, 16, 24, MediaQuery.of(context).padding.bottom + 16),
+          decoration: const BoxDecoration(color: AppColors.surface,
+              border: Border(top: BorderSide(color: AppColors.borderLight))),
+          child: AppButton(
+            label: s.transcriptEditParticipants,
+            icon: const Icon(Icons.people_alt_rounded, color: Colors.white, size: 18),
+            onPressed: meetingAsync.valueOrNull == null ? null : () => context.push('/assign-speaker', extra: {
+              'meetingId': widget.meetingId,
+              'title': meetingAsync.valueOrNull?.title ?? '',
+              'duration': meetingAsync.valueOrNull?.duration,
+            }),
+          ),
+        ),
       ])),
       bottomNavigationBar: const AppBottomNav(currentIndex: 0),
     );

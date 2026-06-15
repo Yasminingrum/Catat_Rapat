@@ -6,6 +6,7 @@ import 'package:just_audio/just_audio.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_spacing.dart';
 import '../../../core/constants/app_text_styles.dart';
+import '../../../core/localization/app_strings.dart';
 import '../../../core/providers/meeting_provider.dart';
 import '../../../core/services/supabase_service.dart';
 import '../../../core/widgets/app_bottom_nav.dart';
@@ -46,7 +47,7 @@ class _AudioPlayerScreenState extends ConsumerState<AudioPlayerScreen> {
       if (path == null) {
         setState(() {
           _loading = false;
-          _error = 'Rekaman audio tidak tersedia untuk rapat ini.';
+          _error = ref.read(appStringsProvider).audioPlayerNotAvailable;
         });
         return;
       }
@@ -69,7 +70,7 @@ class _AudioPlayerScreenState extends ConsumerState<AudioPlayerScreen> {
       if (mounted) {
         setState(() {
           _loading = false;
-          _error = 'Gagal memuat audio: $e';
+          _error = ref.read(appStringsProvider).audioPlayerLoadError(e);
         });
       }
     }
@@ -100,6 +101,7 @@ class _AudioPlayerScreenState extends ConsumerState<AudioPlayerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final s = ref.watch(appStringsProvider);
     final meetingAsync = ref.watch(meetingProvider(widget.meetingId));
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -113,16 +115,19 @@ class _AudioPlayerScreenState extends ConsumerState<AudioPlayerScreen> {
                 child: const Icon(Icons.arrow_back_ios_new_rounded, size:14, color: AppColors.textPrimary))),
             const SizedBox(width:12),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('REKAMAN AUDIO', style: AppTextStyles.label()),
-              meetingAsync.when(data: (m) => Text(m?.title ?? '', style: AppTextStyles.displayXs(),
-                  maxLines:1, overflow: TextOverflow.ellipsis),
+              Text(s.audioPlayerHeaderLabel, style: AppTextStyles.label()),
+              meetingAsync.when(data: (m) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(m?.title ?? '', style: AppTextStyles.displayXs(),
+                      maxLines:1, overflow: TextOverflow.ellipsis),
+                  Text(m?.date ?? '', style: AppTextStyles.bodySm(c: AppColors.textSecondary)),
+                ]),
                   loading: () => const SizedBox.shrink(), error: (_,__) => const SizedBox.shrink()),
             ])),
           ])),
         const Divider(height:1),
 
         Expanded(child: _error != null
-          ? _ErrorView(message: _error!)
+          ? _ErrorView(s: s, message: _error!)
           : _loading
             ? const Center(child: CircularProgressIndicator())
             : Padding(
@@ -130,94 +135,88 @@ class _AudioPlayerScreenState extends ConsumerState<AudioPlayerScreen> {
                 child: Column(children: [
                   const Spacer(),
 
-                  // Waveform decorative dengan progres
-                  Container(height: 80, padding: const EdgeInsets.symmetric(horizontal:16),
+                  // Kartu pemutar audio
+                  Container(width: double.infinity, padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(color: AppColors.surface, borderRadius: AppRadius.xl,
                         border: Border.all(color: AppColors.borderLight), boxShadow: AppShadows.card),
-                    child: Row(mainAxisAlignment: MainAxisAlignment.center,
-                      children: List.generate(60, (i) {
-                        final h = 4.0 + (i % 5) * 4.0 + (i % 7) * 2.0;
-                        final clampedH = h.clamp(4.0, 24.0);
-                        final progress = _duration.inMilliseconds == 0
-                            ? 0.0
-                            : _position.inMilliseconds / _duration.inMilliseconds;
-                        final isActive = i / 60 <= progress;
-                        return Container(width:3, margin: const EdgeInsets.symmetric(horizontal:1),
-                            height: clampedH, decoration: BoxDecoration(
-                                color: isActive ? AppColors.primary : AppColors.divider,
-                                borderRadius: AppRadius.full));
-                      }))),
-                  const SizedBox(height: 32),
+                    child: Column(children: [
+                      // Ikon
+                      Container(width: 96, height: 96,
+                        decoration: const BoxDecoration(color: AppColors.primaryLight, shape: BoxShape.circle),
+                        child: const Icon(Icons.volume_up_rounded, color: AppColors.primary, size: 40)),
+                      const SizedBox(height: 20),
 
-                  // Title
-                  meetingAsync.when(
-                    data: (m) => Column(children: [
-                      Text(m?.title ?? '', style: AppTextStyles.displayXs(w: FontWeight.w700), textAlign: TextAlign.center),
-                      Text(m?.date ?? '', style: AppTextStyles.bodyMd(c: AppColors.textSecondary)),
-                    ]),
-                    loading: () => const SizedBox.shrink(), error: (_,__) => const SizedBox.shrink()),
-                  const SizedBox(height: 32),
+                      // Title + date
+                      meetingAsync.when(
+                        data: (m) => Column(children: [
+                          Text(m?.title ?? '', style: AppTextStyles.displayXs(w: FontWeight.w700), textAlign: TextAlign.center),
+                          const SizedBox(height: 4),
+                          Text(m?.date ?? '', style: AppTextStyles.bodyMd(c: AppColors.textSecondary)),
+                        ]),
+                        loading: () => const SizedBox.shrink(), error: (_,__) => const SizedBox.shrink()),
+                      const SizedBox(height: 24),
 
-                  // Slider
-                  SliderTheme(
-                    data: SliderThemeData(
-                      trackHeight: 4, thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
-                      activeTrackColor: AppColors.primary, inactiveTrackColor: AppColors.divider,
-                      thumbColor: AppColors.primary, overlayColor: AppColors.primary.withValues(alpha: 0.1)),
-                    child: Slider(
-                        value: _position.inMilliseconds
-                            .toDouble()
-                            .clamp(0, _duration.inMilliseconds.toDouble().clamp(1, double.infinity)),
-                        max: _duration.inMilliseconds.toDouble().clamp(1, double.infinity),
-                        onChanged: (v) => _player.seek(Duration(milliseconds: v.toInt())))),
-                  Padding(padding: const EdgeInsets.symmetric(horizontal:4),
-                    child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                      Text(_format(_position), style: AppTextStyles.bodySm(c: AppColors.textSecondary, w: FontWeight.w600)),
-                      Text(_format(_duration), style: AppTextStyles.bodySm(c: AppColors.textSecondary, w: FontWeight.w600)),
+                      // Slider
+                      SliderTheme(
+                        data: SliderThemeData(
+                          trackHeight: 4, thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
+                          activeTrackColor: AppColors.primary, inactiveTrackColor: AppColors.divider,
+                          thumbColor: AppColors.primary, overlayColor: AppColors.primary.withValues(alpha: 0.1)),
+                        child: Slider(
+                            value: _position.inMilliseconds
+                                .toDouble()
+                                .clamp(0, _duration.inMilliseconds.toDouble().clamp(1, double.infinity)),
+                            max: _duration.inMilliseconds.toDouble().clamp(1, double.infinity),
+                            onChanged: (v) => _player.seek(Duration(milliseconds: v.toInt())))),
+                      Padding(padding: const EdgeInsets.symmetric(horizontal:4),
+                        child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                          Text(_format(_position), style: AppTextStyles.bodySm(c: AppColors.textSecondary, w: FontWeight.w600)),
+                          Text(_format(_duration), style: AppTextStyles.bodySm(c: AppColors.textSecondary, w: FontWeight.w600)),
+                        ])),
+                      const SizedBox(height: 24),
+
+                      // Controls
+                      Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                        // Skip -15s
+                        GestureDetector(onTap: () => _seekBy(-_skipDuration),
+                          child: Container(width:48, height:48, decoration: BoxDecoration(color: AppColors.background,
+                              borderRadius: AppRadius.full, border: Border.all(color: AppColors.borderMedium)),
+                            child: const Icon(Icons.replay_rounded, color: AppColors.textPrimary, size:22))),
+                        const SizedBox(width: 16),
+                        // Play/Pause
+                        GestureDetector(onTap: () => _playing ? _player.pause() : _player.play(),
+                          child: Container(width:64, height:64,
+                            decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle,
+                                boxShadow: AppShadows.buttonPrimary),
+                            child: Icon(_playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                                color: Colors.white, size:28))),
+                        const SizedBox(width: 16),
+                        // Skip +15s
+                        GestureDetector(onTap: () => _seekBy(_skipDuration),
+                          child: Container(width:48, height:48, decoration: BoxDecoration(color: AppColors.background,
+                              borderRadius: AppRadius.full, border: Border.all(color: AppColors.borderMedium)),
+                            child: const Icon(Icons.forward_rounded, color: AppColors.textPrimary, size:22))),
+                      ]),
+                      const SizedBox(height: 16),
+                      Text(s.audioPlayerSkipHint, style: AppTextStyles.caption(c: AppColors.textTertiary)),
                     ])),
                   const SizedBox(height: 24),
 
-                  // Controls
-                  Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                    // Skip -15s
-                    GestureDetector(onTap: () => _seekBy(-_skipDuration),
-                      child: Container(width:48, height:48, decoration: BoxDecoration(color: AppColors.surface,
-                          borderRadius: AppRadius.full, border: Border.all(color: AppColors.borderMedium)),
-                        child: const Icon(Icons.replay_rounded, color: AppColors.textPrimary, size:22))),
-                    const SizedBox(width: 16),
-                    // Play/Pause
-                    GestureDetector(onTap: () => _playing ? _player.pause() : _player.play(),
-                      child: Container(width:64, height:64,
-                        decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle,
-                            boxShadow: AppShadows.buttonPrimary),
-                        child: Icon(_playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                            color: Colors.white, size:28))),
-                    const SizedBox(width: 16),
-                    // Skip +15s
-                    GestureDetector(onTap: () => _seekBy(_skipDuration),
-                      child: Container(width:48, height:48, decoration: BoxDecoration(color: AppColors.surface,
-                          borderRadius: AppRadius.full, border: Border.all(color: AppColors.borderMedium)),
-                        child: const Icon(Icons.forward_rounded, color: AppColors.textPrimary, size:22))),
-                  ]),
-                  const SizedBox(height: 16),
-                  Text('Tekan tombol untuk loncat ±15 detik', style: AppTextStyles.caption(c: AppColors.textTertiary)),
-                  const SizedBox(height: 16),
-
                   // Speed
                   Row(mainAxisAlignment: MainAxisAlignment.center, children:
-                    _speedOptions.map((s) => GestureDetector(
+                    _speedOptions.map((speed) => GestureDetector(
                       onTap: () {
-                        setState(() => _speed = s);
-                        _player.setSpeed(s);
+                        setState(() => _speed = speed);
+                        _player.setSpeed(speed);
                       },
                       child: Container(margin: const EdgeInsets.symmetric(horizontal:6),
                         padding: const EdgeInsets.symmetric(horizontal:14, vertical:6),
                         decoration: BoxDecoration(
-                          color: _speed == s ? AppColors.primaryLight : Colors.transparent,
+                          color: _speed == speed ? AppColors.primaryLight : Colors.transparent,
                           borderRadius: AppRadius.full),
-                        child: Text('${s}x', style: AppTextStyles.bodyMd(
-                            c: _speed == s ? AppColors.primary : AppColors.textTertiary,
-                            w: _speed == s ? FontWeight.w600 : FontWeight.w400))))).toList()),
+                        child: Text('${speed}x', style: AppTextStyles.bodyMd(
+                            c: _speed == speed ? AppColors.primary : AppColors.textTertiary,
+                            w: _speed == speed ? FontWeight.w600 : FontWeight.w400))))).toList()),
 
                   const Spacer(),
                 ]))),
@@ -228,18 +227,29 @@ class _AudioPlayerScreenState extends ConsumerState<AudioPlayerScreen> {
 }
 
 class _ErrorView extends StatelessWidget {
-  const _ErrorView({required this.message});
+  const _ErrorView({required this.s, required this.message});
+  final AppStrings s;
   final String message;
 
   @override
-  Widget build(BuildContext context) => Center(
-    child: Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(mainAxisSize: MainAxisSize.min, children: [
-        const Icon(Icons.music_off_rounded, size: 40, color: AppColors.textTertiary),
-        const SizedBox(height: 12),
-        Text(message, style: AppTextStyles.bodyMd(c: AppColors.textSecondary), textAlign: TextAlign.center),
-      ]),
-    ),
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.all(24),
+    child: Column(children: [
+      const Spacer(),
+      Container(width: double.infinity, padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+        decoration: BoxDecoration(color: AppColors.surface, borderRadius: AppRadius.xl,
+            border: Border.all(color: AppColors.borderLight), boxShadow: AppShadows.card),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(width: 72, height: 72,
+              decoration: const BoxDecoration(color: AppColors.background, shape: BoxShape.circle),
+              child: const Icon(Icons.music_off_rounded, size: 32, color: AppColors.textTertiary)),
+          const SizedBox(height: 20),
+          Text(s.audioPlayerUnavailableTitle, style: AppTextStyles.displayXs(w: FontWeight.w700),
+              textAlign: TextAlign.center),
+          const SizedBox(height: 8),
+          Text(message, style: AppTextStyles.bodyMd(c: AppColors.textSecondary), textAlign: TextAlign.center),
+        ])),
+      const Spacer(),
+    ]),
   );
 }

@@ -5,6 +5,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_spacing.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/models/meeting_model.dart';
+import '../../../core/localization/app_strings.dart';
 import '../../../core/providers/auth_provider.dart';
 import '../../../core/providers/meeting_provider.dart';
 import '../../../core/widgets/app_bottom_nav.dart';
@@ -16,7 +17,8 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentUserProvider);
-    final meetingsAsync = ref.watch(meetingListProvider);
+    final meetingsAsync = ref.watch(visibleMeetingsProvider);
+    final s = ref.watch(appStringsProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -26,9 +28,9 @@ class HomeScreen extends ConsumerWidget {
           padding: const EdgeInsets.fromLTRB(24,16,24,16),
           child: Row(children: [
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('Halo, ${user?.name.split(' ').first ?? 'Pengguna'}! 👋', style: AppTextStyles.displayLg()),
+              Text(s.homeGreeting(user?.name.split(' ').first ?? 'Pengguna'), style: AppTextStyles.displayLg()),
               const SizedBox(height: 2),
-              Text('Siap mencatat rapat hari ini?', style: AppTextStyles.bodyMd(c: AppColors.textSecondary)),
+              Text(s.homeSubtitle, style: AppTextStyles.bodyMd(c: AppColors.textSecondary)),
             ])),
             Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
               GestureDetector(onTap: () => context.go('/profil'),
@@ -52,7 +54,7 @@ class HomeScreen extends ConsumerWidget {
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               // Stats
               meetingsAsync.when(
-                data: (m) => _StatsRow(total: m.length,
+                data: (m) => _StatsRow(s: s, total: m.length,
                     berjalan: m.where((x) => x.status == MeetingStatus.draft).length,
                     notulas: m.where((x) => x.hasNotula).length),
                 loading: () => const SizedBox.shrink(),
@@ -60,26 +62,26 @@ class HomeScreen extends ConsumerWidget {
               const SizedBox(height: 24),
 
               // Quick action
-              _QuickActionCard(onTap: () => context.push('/mulai-rapat')),
+              _QuickActionCard(s: s, onTap: () => context.push('/mulai-rapat')),
               const SizedBox(height: 24),
 
               // Rapat terbaru
               Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                Text('Rapat Terbaru', style: AppTextStyles.displayXs()),
+                Text(s.homeRecentMeetings, style: AppTextStyles.displayXs()),
                 GestureDetector(onTap: () => context.go('/riwayat'),
-                    child: Text('Lihat Semua', style: AppTextStyles.bodyMd(c: AppColors.primary, w: FontWeight.w500))),
+                    child: Text(s.homeSeeAll, style: AppTextStyles.bodyMd(c: AppColors.primary, w: FontWeight.w500))),
               ]),
               const SizedBox(height: 12),
 
               meetingsAsync.when(
                 data: (meetings) => meetings.isEmpty
-                    ? _EmptyState()
+                    ? _EmptyState(s: s)
                     : Column(children: meetings.take(3).toList().asMap().entries.map((e) =>
                         Padding(padding: EdgeInsets.only(bottom: e.key < 2 ? 12 : 0),
                             child: MeetingCard(meeting: e.value,
                                 onTap: () => context.push('/rapat/${e.value.id}')))).toList()),
                 loading: () => const Center(child: CircularProgressIndicator()),
-                error: (e, _) => Center(child: Text('Gagal memuat: $e',
+                error: (e, _) => Center(child: Text('${s.commonLoadFailed}: $e',
                     style: AppTextStyles.bodyMd(c: AppColors.error)))),
             ]),
           ))),
@@ -103,14 +105,15 @@ class _TokenBar extends StatelessWidget {
 }
 
 class _StatsRow extends StatelessWidget {
-  const _StatsRow({required this.total, required this.berjalan, required this.notulas});
+  const _StatsRow({required this.s, required this.total, required this.berjalan, required this.notulas});
+  final AppStrings s;
   final int total, berjalan, notulas;
   @override Widget build(BuildContext context) => Row(children: [
-    Expanded(child: _Stat('Total Rapat', '$total', Icons.mic_none_rounded, AppColors.primary)),
+    Expanded(child: _Stat(s.homeStatTotal, '$total', Icons.mic_none_rounded, AppColors.primary)),
     const SizedBox(width: 12),
-    Expanded(child: _Stat('Berlangsung', '$berjalan', Icons.radio_button_on_rounded, AppColors.error)),
+    Expanded(child: _Stat(s.homeStatOngoing, '$berjalan', Icons.radio_button_on_rounded, AppColors.error)),
     const SizedBox(width: 12),
-    Expanded(child: _Stat('Notula Dibuat', '$notulas', Icons.description_outlined, AppColors.success)),
+    Expanded(child: _Stat(s.homeStatNotula, '$notulas', Icons.description_outlined, AppColors.success)),
   ]);
 }
 
@@ -131,7 +134,8 @@ class _Stat extends StatelessWidget {
 }
 
 class _QuickActionCard extends StatelessWidget {
-  const _QuickActionCard({required this.onTap});
+  const _QuickActionCard({required this.s, required this.onTap});
+  final AppStrings s;
   final VoidCallback onTap;
   @override Widget build(BuildContext context) => GestureDetector(
     onTap: onTap,
@@ -141,17 +145,17 @@ class _QuickActionCard extends StatelessWidget {
       child: Row(children: [
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.center, children: [
-          Text('Mulai Rapat Baru', style: AppTextStyles.displaySm(c: Colors.white)),
+          Text(s.homeQuickActionTitle, style: AppTextStyles.displaySm(c: Colors.white)),
           const SizedBox(height: 6),
-          Text('Rekam & buat notula otomatis', style: AppTextStyles.bodyMd(c: Colors.white70)),
-          const SizedBox(height: 16),
+          Text(s.homeQuickActionSubtitle, style: AppTextStyles.bodyMd(c: Colors.white70)),
+          const SizedBox(height: 10),
           Container(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: AppRadius.md,
                 border: Border.all(color: Colors.white.withValues(alpha: 0.3))),
             child: Row(mainAxisSize: MainAxisSize.min, children: [
               const Icon(Icons.mic_rounded, color: Colors.white, size: 16),
               const SizedBox(width: 6),
-              Text('Mulai Sekarang', style: AppTextStyles.bodySm(c: Colors.white, w: FontWeight.w600)),
+              Text(s.homeQuickActionButton, style: AppTextStyles.bodySm(c: Colors.white, w: FontWeight.w600)),
             ])),
         ])),
         const Icon(Icons.mic_rounded, color: Colors.white30, size: 72),
@@ -159,13 +163,15 @@ class _QuickActionCard extends StatelessWidget {
 }
 
 class _EmptyState extends StatelessWidget {
+  const _EmptyState({required this.s});
+  final AppStrings s;
   @override Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.symmetric(vertical: 32),
     child: Column(children: [
       const Icon(Icons.calendar_today_outlined, size: 40, color: AppColors.divider),
       const SizedBox(height: 12),
-      Text('Belum ada rapat tercatat', style: AppTextStyles.bodyMd(c: AppColors.textSecondary, w: FontWeight.w500)),
+      Text(s.homeEmptyTitle, style: AppTextStyles.bodyMd(c: AppColors.textSecondary, w: FontWeight.w500)),
       const SizedBox(height: 4),
-      Text('Mulai rapat pertama Anda sekarang!', style: AppTextStyles.bodySm(c: AppColors.textTertiary)),
+      Text(s.homeEmptySubtitle, style: AppTextStyles.bodySm(c: AppColors.textTertiary)),
     ]));
 }

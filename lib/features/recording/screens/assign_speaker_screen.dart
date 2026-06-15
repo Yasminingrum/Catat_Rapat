@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_spacing.dart';
 import '../../../core/constants/app_text_styles.dart';
+import '../../../core/localization/app_strings.dart';
 import '../../../core/models/meeting_model.dart';
 import '../../../core/providers/meeting_provider.dart';
 import '../../../core/services/supabase_service.dart';
@@ -29,7 +30,7 @@ class _AssignSpeakerScreenState extends ConsumerState<AssignSpeakerScreen> {
   final Map<String, String> _names = {};
   bool _saving = false;
 
-  Future<void> _save(List<_SpeakerEntry> speakers) async {
+  Future<void> _save(AppStrings s, List<_SpeakerEntry> speakers) async {
     final meetingId = widget.meetingId;
     if (meetingId == null) {
       context.pushReplacement('/home');
@@ -55,11 +56,11 @@ class _AssignSpeakerScreenState extends ConsumerState<AssignSpeakerScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _saving = false);
-      SnackbarUtil.showError(context, 'Gagal menyimpan peserta: $e');
+      SnackbarUtil.showError(context, s.assignSpeakerSaveError(e));
     }
   }
 
-  List<_SpeakerEntry> _buildSpeakers(List<TranscriptLine> transcript) {
+  List<_SpeakerEntry> _buildSpeakers(AppStrings s, List<TranscriptLine> transcript) {
     if (transcript.isEmpty) return [];
 
     final ids = transcript.map((l) => l.speakerId).toSet().toList()..sort();
@@ -83,7 +84,7 @@ class _AssignSpeakerScreenState extends ConsumerState<AssignSpeakerScreen> {
       final idx = int.tryParse(id.replaceAll('S', '')) ?? 1;
       return _SpeakerEntry(
         id: id,
-        label: 'Suara $idx',
+        label: s.assignSpeakerVoiceLabel(idx),
         talkTime: _formatTalkTime(talkSeconds[id] ?? 0),
         color: AppColors.speakerColor(idx - 1),
         colorBg: AppColors.speakerBg(idx - 1),
@@ -109,12 +110,13 @@ class _AssignSpeakerScreenState extends ConsumerState<AssignSpeakerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final s = ref.watch(appStringsProvider);
     final meetingId = widget.meetingId;
     final transcriptAsync = meetingId == null
         ? const AsyncValue<List<TranscriptLine>>.data(<TranscriptLine>[])
         : ref.watch(transcriptProvider(meetingId));
     final speakers = transcriptAsync.valueOrNull != null
-        ? _buildSpeakers(transcriptAsync.value!)
+        ? _buildSpeakers(s, transcriptAsync.value!)
         : <_SpeakerEntry>[];
 
     return Scaffold(
@@ -147,14 +149,14 @@ class _AssignSpeakerScreenState extends ConsumerState<AssignSpeakerScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Assign Peserta',
+                        Text(s.assignSpeakerTitle,
                             style: AppTextStyles.displayMd()),
                         Text(
                           transcriptAsync.isLoading
-                              ? 'Memuat hasil deteksi suara...'
+                              ? s.assignSpeakerLoadingDetection
                               : speakers.isEmpty
-                                  ? 'AI tidak mendeteksi suara pembicara pada rapat ini.'
-                                  : 'AI mendeteksi ${speakers.length} suara. Assignkan nama.',
+                                  ? s.assignSpeakerNoVoicesDetected
+                                  : s.assignSpeakerDetectedCount(speakers.length),
                           style: AppTextStyles.bodySm(
                               c: AppColors.textSecondary),
                         ),
@@ -184,8 +186,7 @@ class _AssignSpeakerScreenState extends ConsumerState<AssignSpeakerScreen> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Nama yang pernah diinput akan muncul sebagai saran. '
-                        'Boleh dikosongkan — Suara 1/2/3 tetap tersimpan.',
+                        s.assignSpeakerInfoBanner,
                         style: AppTextStyles.bodySm(c: AppColors.primary),
                       ),
                     ),
@@ -200,7 +201,7 @@ class _AssignSpeakerScreenState extends ConsumerState<AssignSpeakerScreen> {
                 error: (e, _) => Center(
                   child: Padding(
                     padding: const EdgeInsets.all(24),
-                    child: Text('Gagal memuat data transkrip: $e',
+                    child: Text(s.assignSpeakerLoadError(e),
                         style: AppTextStyles.bodyMd(c: AppColors.textSecondary),
                         textAlign: TextAlign.center),
                   ),
@@ -210,8 +211,7 @@ class _AssignSpeakerScreenState extends ConsumerState<AssignSpeakerScreen> {
                         child: Padding(
                           padding: const EdgeInsets.all(24),
                           child: Text(
-                            'Tidak ada suara yang perlu di-assign. '
-                            'Anda bisa langsung melanjutkan ke notula.',
+                            s.assignSpeakerNothingToAssign,
                             style: AppTextStyles.bodyMd(c: AppColors.textSecondary),
                             textAlign: TextAlign.center,
                           ),
@@ -223,6 +223,7 @@ class _AssignSpeakerScreenState extends ConsumerState<AssignSpeakerScreen> {
                         separatorBuilder: (_, __) =>
                             const SizedBox(height: AppSpacing.md),
                         itemBuilder: (context, i) => _SpeakerCard(
+                          s: s,
                           entry: speakers[i],
                           onNameChanged: (name) =>
                               setState(() => _names[speakers[i].id] = name),
@@ -244,13 +245,13 @@ class _AssignSpeakerScreenState extends ConsumerState<AssignSpeakerScreen> {
               child: Column(
                 children: [
                   AppButton(
-                    label: speakers.isEmpty ? 'Lanjutkan ke Notula' : 'Simpan Rapat',
+                    label: speakers.isEmpty ? s.assignSpeakerContinueToNotula : s.assignSpeakerSaveMeeting,
                     isLoading: _saving,
-                    onPressed: transcriptAsync.isLoading ? null : () => _save(speakers),
+                    onPressed: transcriptAsync.isLoading ? null : () => _save(s, speakers),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    "Suara yang kosong tersimpan sebagai 'Suara 1', 'Suara 2', dst.",
+                    s.assignSpeakerEmptyVoiceNote,
                     style: AppTextStyles.caption(c: AppColors.textTertiary),
                     textAlign: TextAlign.center,
                   ),
@@ -283,8 +284,9 @@ class _SpeakerEntry {
 }
 
 class _SpeakerCard extends StatelessWidget {
-  const _SpeakerCard({required this.entry, required this.onNameChanged});
+  const _SpeakerCard({required this.s, required this.entry, required this.onNameChanged});
 
+  final AppStrings s;
   final _SpeakerEntry entry;
   final void Function(String) onNameChanged;
 
@@ -322,7 +324,7 @@ class _SpeakerCard extends StatelessWidget {
                     Text(entry.label,
                         style: AppTextStyles.bodyMd(
                             c: entry.color, w: FontWeight.w700)),
-                    Text('${entry.talkTime} bicara',
+                    Text(s.assignSpeakerTalkTime(entry.talkTime),
                         style: AppTextStyles.caption(
                             c: AppColors.textTertiary)),
                   ],
@@ -349,13 +351,13 @@ class _SpeakerCard extends StatelessWidget {
           const SizedBox(height: 12),
 
           // Name input
-          Text('NAMA PESERTA', style: AppTextStyles.label()),
+          Text(s.assignSpeakerParticipantNameLabel, style: AppTextStyles.label()),
           const SizedBox(height: 6),
           TextFormField(
             onChanged: onNameChanged,
             style: AppTextStyles.bodyMd(),
             decoration: InputDecoration(
-              hintText: 'Kosongkan jika tidak diketahui',
+              hintText: s.assignSpeakerNameHint,
               hintStyle: AppTextStyles.bodyMd(c: AppColors.textDisabled),
               suffixIcon: const Icon(Icons.expand_more_rounded,
                   color: AppColors.textTertiary, size: 20),

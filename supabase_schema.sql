@@ -21,10 +21,11 @@ create policy "Users can update own profile" on profiles for update using (auth.
 
 -- Auto-create profile on signup
 create or replace function handle_new_user()
-returns trigger language plpgsql security definer as $$
+returns trigger language plpgsql security definer set search_path = public as $$
 begin
-  insert into profiles (id, name, email)
-  values (new.id, coalesce(new.raw_user_meta_data->>'name',''), new.email);
+  insert into public.profiles (id, name, email)
+  values (new.id, coalesce(new.raw_user_meta_data->>'name',''), new.email)
+  on conflict (id) do nothing;
   return new;
 end;
 $$;
@@ -44,6 +45,7 @@ create table meetings (
   has_transcript  boolean default false,
   has_notula      boolean default false,
   has_audio       boolean default false,
+  is_starred      boolean default false,
   audio_path      text,
   created_at      timestamptz default now(),
   updated_at      timestamptz default now()

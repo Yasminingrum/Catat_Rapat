@@ -7,24 +7,25 @@ class Meeting {
     required this.time, required this.duration,
     required this.participants, required this.status,
     this.hasTranscript = false, this.hasNotula = false,
-    this.hasAudio = false, this.agenda, this.audioPath,
+    this.hasAudio = false, this.isStarred = false, this.agenda, this.audioPath,
   });
 
   final String id, title, date, time, duration;
   final List<Participant> participants;
   final MeetingStatus status;
-  final bool hasTranscript, hasNotula, hasAudio;
+  final bool hasTranscript, hasNotula, hasAudio, isStarred;
   final String? agenda, audioPath;
 
   Meeting copyWith({
     String? title, String? agenda, MeetingStatus? status,
-    bool? hasTranscript, bool? hasNotula, bool? hasAudio, String? audioPath,
+    bool? hasTranscript, bool? hasNotula, bool? hasAudio, bool? isStarred, String? audioPath,
   }) => Meeting(
     id: id, title: title ?? this.title, date: date, time: time, duration: duration,
     participants: participants, status: status ?? this.status,
     hasTranscript: hasTranscript ?? this.hasTranscript,
     hasNotula: hasNotula ?? this.hasNotula,
     hasAudio: hasAudio ?? this.hasAudio,
+    isStarred: isStarred ?? this.isStarred,
     agenda: agenda ?? this.agenda, audioPath: audioPath ?? this.audioPath,
   );
 
@@ -39,6 +40,7 @@ class Meeting {
     hasTranscript: j['has_transcript'] as bool? ?? false,
     hasNotula: j['has_notula'] as bool? ?? false,
     hasAudio: j['has_audio'] as bool? ?? false,
+    isStarred: j['is_starred'] as bool? ?? false,
     agenda: j['agenda'] as String?,
     audioPath: j['audio_path'] as String?,
   );
@@ -47,7 +49,7 @@ class Meeting {
     'id': id, 'title': title, 'date': date, 'time': time, 'duration': duration,
     'participants': participants.map((p) => p.toJson()).toList(),
     'status': status.name, 'has_transcript': hasTranscript,
-    'has_notula': hasNotula, 'has_audio': hasAudio,
+    'has_notula': hasNotula, 'has_audio': hasAudio, 'is_starred': isStarred,
     'agenda': agenda, 'audio_path': audioPath,
   };
 }

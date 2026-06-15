@@ -4,11 +4,14 @@ import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_spacing.dart';
 import '../../../core/constants/app_text_styles.dart';
+import '../../../core/localization/app_strings.dart';
 import '../../../core/models/meeting_model.dart';
 import '../../../core/providers/meeting_provider.dart';
 import '../../../core/utils/snackbar_util.dart';
 import '../../../core/widgets/app_button.dart';
 import '../../../core/widgets/app_bottom_nav.dart';
+import '../widgets/bagikan_notula_sheet.dart';
+import '../widgets/unduh_notula_sheet.dart';
 
 class EditNotulaScreen extends ConsumerStatefulWidget {
   const EditNotulaScreen({super.key, required this.meetingId});
@@ -71,17 +74,25 @@ class _EditNotulaScreenState extends ConsumerState<EditNotulaScreen> {
           }).toList(),
     );
     await ref.read(notulaProvider(widget.meetingId).notifier).save(updated);
-    if (mounted) { SnackbarUtil.showSuccess(context, 'Notula berhasil disimpan'); context.pop(); }
+    if (mounted) {
+      SnackbarUtil.showSuccess(context, ref.read(appStringsProvider).editNotulaSavedSuccess);
+      context.pop();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final s = ref.watch(appStringsProvider);
     final notula = ref.watch(notulaProvider(widget.meetingId));
     if (notula == null) return const Scaffold(body: Center(child: CircularProgressIndicator()));
     _init(notula);
 
+    final meetingAsync = ref.watch(meetingProvider(widget.meetingId));
+    final meeting = meetingAsync.valueOrNull;
+
     return Scaffold(
       backgroundColor: AppColors.background,
+      resizeToAvoidBottomInset: false,
       body: SafeArea(bottom: false, child: Column(children: [
         // Header
         Container(color: AppColors.surface, padding: const EdgeInsets.fromLTRB(16,12,16,12),
@@ -92,18 +103,41 @@ class _EditNotulaScreenState extends ConsumerState<EditNotulaScreen> {
                     border: Border.all(color: AppColors.borderMedium)),
                 child: const Icon(Icons.arrow_back_ios_new_rounded, size:14, color: AppColors.textPrimary))),
             const SizedBox(width:12),
-            Expanded(child: Text('Edit Notula', style: AppTextStyles.displayMd())),
-            Container(padding: const EdgeInsets.symmetric(horizontal:10, vertical:4),
-                decoration: const BoxDecoration(color: AppColors.warningLight, borderRadius: AppRadius.full),
-                child: Text('Draft', style: AppTextStyles.caption(c: AppColors.warning, w: FontWeight.w600))),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(s.editNotulaHeaderLabel, style: AppTextStyles.label()),
+              Text(meeting?.title ?? '', style: AppTextStyles.displayXs(w: FontWeight.w700),
+                  maxLines:1, overflow: TextOverflow.ellipsis),
+            ])),
+            const SizedBox(width: 8),
+            GestureDetector(onTap: meeting == null ? null
+                  : () => showUnduhNotulaSheet(context, meeting: meeting, notula: notula),
+              child: Container(width:36, height:36,
+                decoration: const BoxDecoration(color: AppColors.background, shape: BoxShape.circle),
+                child: const Icon(Icons.download_rounded, size:18, color: AppColors.textSecondary))),
+            const SizedBox(width: 8),
+            GestureDetector(onTap: meeting == null ? null
+                  : () => showBagikanNotulaSheet(context, meeting: meeting),
+              child: Container(padding: const EdgeInsets.symmetric(horizontal:14, vertical:8),
+                decoration: const BoxDecoration(color: AppColors.primary, borderRadius: AppRadius.full),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  const Icon(Icons.ios_share_rounded, size:14, color: Colors.white),
+                  const SizedBox(width:6),
+                  Text(s.editNotulaShare, style: AppTextStyles.bodySm(c: Colors.white, w: FontWeight.w600)),
+                ]))),
           ])),
         const Divider(height:1),
 
         Expanded(child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(24,24,24,16),
+          padding: EdgeInsets.fromLTRB(24, 24, 24, 16 + MediaQuery.of(context).viewInsets.bottom),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            // Info rapat
+            if (meeting != null) ...[
+              _MeetingInfoCard(s: s, meeting: meeting),
+              const SizedBox(height: 24),
+            ],
+
             // Ringkasan
-            Text('RINGKASAN', style: AppTextStyles.label()),
+            Text(s.editNotulaSummaryLabel, style: AppTextStyles.label()),
             const SizedBox(height: 8),
             Container(decoration: BoxDecoration(color: AppColors.surface, borderRadius: AppRadius.md,
                 border: Border.all(color: AppColors.borderMedium)),
@@ -115,7 +149,7 @@ class _EditNotulaScreenState extends ConsumerState<EditNotulaScreen> {
 
             // Keputusan
             Row(children: [
-              Text('KEPUTUSAN', style: AppTextStyles.label()),
+              Text(s.editNotulaDecisionsLabel, style: AppTextStyles.label()),
               const SizedBox(width:8),
               Container(padding: const EdgeInsets.symmetric(horizontal:8, vertical:2),
                   decoration: const BoxDecoration(color: AppColors.primaryLight, borderRadius: AppRadius.full),
@@ -143,13 +177,13 @@ class _EditNotulaScreenState extends ConsumerState<EditNotulaScreen> {
                 child: Row(children: [
                   const Icon(Icons.add_rounded, size:16, color: AppColors.primary),
                   const SizedBox(width:6),
-                  Text('+ Tambah keputusan baru...', style: AppTextStyles.bodyMd(c: AppColors.textTertiary)),
+                  Text(s.editNotulaAddDecision, style: AppTextStyles.bodyMd(c: AppColors.textTertiary)),
                 ]))),
             const SizedBox(height: 24),
 
             // Action items
             Row(children: [
-              Text('TINDAK LANJUT', style: AppTextStyles.label()),
+              Text(s.editNotulaActionItemsLabel, style: AppTextStyles.label()),
               const SizedBox(width:8),
               Container(padding: const EdgeInsets.symmetric(horizontal:8, vertical:2),
                   decoration: const BoxDecoration(color: AppColors.primaryLight, borderRadius: AppRadius.full),
@@ -165,7 +199,7 @@ class _EditNotulaScreenState extends ConsumerState<EditNotulaScreen> {
                 Row(children: [
                   Expanded(child: TextFormField(controller: e.value['text'], style: AppTextStyles.bodyMd(),
                       maxLines: 2,
-                      decoration: InputDecoration(hintText: 'Deskripsi tindak lanjut',
+                      decoration: InputDecoration(hintText: s.editNotulaActionDescHint,
                           hintStyle: AppTextStyles.bodyMd(c: AppColors.textDisabled),
                           border: InputBorder.none, contentPadding: EdgeInsets.zero))),
                   GestureDetector(onTap: () => setState(() => _actionCtrls.removeAt(e.key)),
@@ -174,17 +208,17 @@ class _EditNotulaScreenState extends ConsumerState<EditNotulaScreen> {
                 const Divider(height: 16),
                 Row(children: [
                   Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('PIC', style: AppTextStyles.label()),
+                    Text(s.editNotulaPicLabel, style: AppTextStyles.label()),
                     TextFormField(controller: e.value['pic'], style: AppTextStyles.bodyMd(),
-                        decoration: InputDecoration(hintText: 'Nama...',
+                        decoration: InputDecoration(hintText: s.editNotulaNameHint,
                             hintStyle: AppTextStyles.bodyMd(c: AppColors.textDisabled),
                             border: InputBorder.none, contentPadding: EdgeInsets.zero)),
                   ])),
                   const SizedBox(width:16),
                   Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('TENGGAT', style: AppTextStyles.label()),
+                    Text(s.editNotulaDeadlineLabel, style: AppTextStyles.label()),
                     TextFormField(controller: e.value['deadline'], style: AppTextStyles.bodyMd(),
-                        decoration: InputDecoration(hintText: 'Tanggal...',
+                        decoration: InputDecoration(hintText: s.editNotulaDateHint,
                             hintStyle: AppTextStyles.bodyMd(c: AppColors.textDisabled),
                             border: InputBorder.none, contentPadding: EdgeInsets.zero)),
                   ])),
@@ -199,7 +233,7 @@ class _EditNotulaScreenState extends ConsumerState<EditNotulaScreen> {
                 child: Row(children: [
                   const Icon(Icons.add_rounded, size:16, color: AppColors.primary),
                   const SizedBox(width:6),
-                  Text('+ Tambah tindak lanjut baru...', style: AppTextStyles.bodyMd(c: AppColors.textTertiary)),
+                  Text(s.editNotulaAddActionItem, style: AppTextStyles.bodyMd(c: AppColors.textTertiary)),
                 ]))),
             const SizedBox(height: 32),
           ]))),
@@ -210,13 +244,56 @@ class _EditNotulaScreenState extends ConsumerState<EditNotulaScreen> {
           decoration: const BoxDecoration(color: AppColors.surface,
               border: Border(top: BorderSide(color: AppColors.borderLight))),
           child: Row(children: [
-            Expanded(child: AppButton(label:'Batal', onPressed: () => context.pop(),
+            Expanded(child: AppButton(label: s.editNotulaCancel, onPressed: () => context.pop(),
                 variant: AppButtonVariant.secondary)),
             const SizedBox(width:12),
-            Expanded(child: AppButton(label:'Simpan', onPressed: _save)),
+            Expanded(child: AppButton(label: s.editNotulaSave, onPressed: _save)),
           ])),
       ])),
       bottomNavigationBar: const AppBottomNav(currentIndex: 0),
     );
   }
+}
+
+class _MeetingInfoCard extends StatelessWidget {
+  const _MeetingInfoCard({required this.s, required this.meeting});
+  final AppStrings s;
+  final Meeting meeting;
+
+  @override
+  Widget build(BuildContext context) {
+    final isFinal = meeting.status == MeetingStatus.final_;
+    return Container(
+      padding: AppSpacing.cardPadding,
+      decoration: BoxDecoration(color: AppColors.surface, borderRadius: AppRadius.lg,
+          border: Border.all(color: AppColors.borderLight), boxShadow: AppShadows.card),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Expanded(child: Text(meeting.title, style: AppTextStyles.displayXs(w: FontWeight.w700))),
+          Container(padding: const EdgeInsets.symmetric(horizontal:10, vertical:4),
+              decoration: BoxDecoration(color: isFinal ? AppColors.successLight : AppColors.warningLight,
+                  borderRadius: AppRadius.full),
+              child: Text(isFinal ? s.editNotulaReadyExport : s.editNotulaDraft,
+                  style: AppTextStyles.caption(c: isFinal ? AppColors.success : AppColors.warning, w: FontWeight.w600))),
+        ]),
+        const SizedBox(height: 12),
+        Row(children: [
+          _InfoPair(s.editNotulaDateLabel, meeting.date), const SizedBox(width:24),
+          _InfoPair(s.editNotulaTimeLabel, '${meeting.time} WIB'), const SizedBox(width:24),
+          _InfoPair(s.editNotulaDurationLabel, meeting.duration),
+        ]),
+        const SizedBox(height: 8),
+        _InfoPair(s.editNotulaParticipantsLabel, meeting.participants.map((p) => p.displayName).join(', ')),
+      ]),
+    );
+  }
+}
+
+class _InfoPair extends StatelessWidget {
+  const _InfoPair(this.label, this.value);
+  final String label, value;
+  @override Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    Text(label, style: AppTextStyles.label()),
+    Text(value, style: AppTextStyles.bodyMd()),
+  ]);
 }

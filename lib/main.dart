@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/router/app_router.dart';
+import 'core/services/notification_service.dart';
 import 'core/theme/app_theme.dart';
 
 Future<void> main() async {
@@ -25,6 +26,10 @@ Future<void> main() async {
     url: const String.fromEnvironment('SUPABASE_URL'),
     publishableKey: const String.fromEnvironment('SUPABASE_ANON_KEY'),
   );
+
+  // Inisialisasi notifikasi lokal & minta izin sejak awal
+  await NotificationService.instance.init();
+  await NotificationService.instance.requestPermission();
 
   runApp(
     const ProviderScope(

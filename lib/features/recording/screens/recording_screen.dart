@@ -2,29 +2,30 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_spacing.dart';
 import '../../../core/constants/app_text_styles.dart';
+import '../../../core/localization/app_strings.dart';
+import '../../../core/providers/settings_provider.dart';
 import '../../../core/services/realtime_transcription_service.dart';
 import '../../../core/utils/snackbar_util.dart';
 import '../../../core/utils/wav_writer.dart';
 
-const _sampleRate = 24000;
-
-class RecordingScreen extends StatefulWidget {
+class RecordingScreen extends ConsumerStatefulWidget {
   const RecordingScreen({super.key, required this.title, this.agenda});
 
   final String title;
   final String? agenda;
 
   @override
-  State<RecordingScreen> createState() => _RecordingScreenState();
+  ConsumerState<RecordingScreen> createState() => _RecordingScreenState();
 }
 
-class _RecordingScreenState extends State<RecordingScreen>
+class _RecordingScreenState extends ConsumerState<RecordingScreen>
     with TickerProviderStateMixin {
   final _recorder = AudioRecorder();
   final _liveTranscription = RealtimeTranscriptionService();
@@ -67,7 +68,7 @@ class _RecordingScreenState extends State<RecordingScreen>
   Future<void> _startRecording() async {
     if (!await _recorder.hasPermission()) {
       if (mounted) {
-        SnackbarUtil.showError(context, 'Izin mikrofon diperlukan untuk merekam');
+        SnackbarUtil.showError(context, ref.read(appStringsProvider).recordingMicPermission);
         context.pop();
       }
       return;
@@ -76,7 +77,18 @@ class _RecordingScreenState extends State<RecordingScreen>
     final dir = await getApplicationDocumentsDirectory();
     final path = '${dir.path}/recording_${DateTime.now().millisecondsSinceEpoch}.wav';
     _recordingPath = path;
-    _wavWriter = WavWriter(path, sampleRate: _sampleRate, numChannels: 1);
+
+    // Tentukan sample rate dari pengaturan Kualitas Rekaman, kecuali transkripsi
+    // live aktif — OpenAI Realtime API mensyaratkan PCM16 mono 24kHz.
+    final sampleRate = _liveTranscription.isAvailable
+        ? 24000
+        : switch (ref.read(settingsProvider).recordingQuality) {
+            RecordingQuality.standard => 16000,
+            RecordingQuality.high => 32000,
+            RecordingQuality.veryHigh => 48000,
+          };
+
+    _wavWriter = WavWriter(path, sampleRate: sampleRate, numChannels: 1);
     await _wavWriter!.open();
 
     // Transkripsi live via OpenAI Realtime API (jika OPENAI_API_KEY tersedia)
@@ -90,9 +102,9 @@ class _RecordingScreenState extends State<RecordingScreen>
       });
     }
 
-    final stream = await _recorder.startStream(const RecordConfig(
+    final stream = await _recorder.startStream(RecordConfig(
       encoder: AudioEncoder.pcm16bits,
-      sampleRate: _sampleRate,
+      sampleRate: sampleRate,
       numChannels: 1,
     ));
     _audioStreamSub = stream.listen((chunk) {
@@ -186,6 +198,7 @@ class _RecordingScreenState extends State<RecordingScreen>
 
   @override
   Widget build(BuildContext context) {
+    final s = ref.watch(appStringsProvider);
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
@@ -201,6 +214,7 @@ class _RecordingScreenState extends State<RecordingScreen>
                 showDialog(
                   context: context,
                   builder: (_) => _ConfirmExitDialog(
+                    s: s,
                     onConfirm: () async {
                       await _recorder.cancel();
                       await _audioStreamSub?.cancel();
@@ -225,6 +239,7 @@ class _RecordingScreenState extends State<RecordingScreen>
                   children: [
                     // Audio quality
                     _AudioQualityCard(
+                      s: s,
                       quality: _audioQuality,
                       level: _qualityLevel,
                     ),
@@ -265,7 +280,7 @@ class _RecordingScreenState extends State<RecordingScreen>
                         ),
                         const SizedBox(width: 6),
                         Text(
-                          _isPaused ? 'DIJEDA' : 'REC',
+                          _isPaused ? s.recordingPaused : s.recordingRec,
                           style: AppTextStyles.bodyMd(
                             c: _isPaused
                                 ? AppColors.warning
@@ -286,6 +301,7 @@ class _RecordingScreenState extends State<RecordingScreen>
 
                     // Live transcript (PBI11)
                     _LiveTranscriptCard(
+                      s: s,
                       lines: _transcriptLines,
                       showTyping: _showTyping && !_isPaused,
                       isLive: _liveTranscription.isAvailable,
@@ -298,6 +314,7 @@ class _RecordingScreenState extends State<RecordingScreen>
 
             // ─── Controls ────────────────────────────────────────
             _RecordingControls(
+              s: s,
               isPaused: _isPaused,
               onPause: _togglePause,
               onDone: _done,
@@ -367,8 +384,9 @@ class _RecordingHeader extends StatelessWidget {
 enum AudioQualityLevel { good, medium, poor }
 
 class _AudioQualityCard extends StatelessWidget {
-  const _AudioQualityCard({required this.quality, required this.level});
+  const _AudioQualityCard({required this.s, required this.quality, required this.level});
 
+  final AppStrings s;
   final int quality;
   final AudioQualityLevel level;
 
@@ -390,9 +408,9 @@ class _AudioQualityCard extends StatelessWidget {
 
   String get _label {
     switch (level) {
-      case AudioQualityLevel.good: return 'Bagus';
-      case AudioQualityLevel.medium: return 'Sedang';
-      case AudioQualityLevel.poor: return 'Lemah';
+      case AudioQualityLevel.good: return s.recordingQualityGood;
+      case AudioQualityLevel.medium: return s.recordingQualityMedium;
+      case AudioQualityLevel.poor: return s.recordingQualityPoor;
     }
   }
 
@@ -413,7 +431,7 @@ class _AudioQualityCard extends StatelessWidget {
               const Icon(Icons.sensors_rounded, size: 14,
                   color: AppColors.textSecondary),
               const SizedBox(width: 6),
-              Text('Kualitas Audio',
+              Text(s.recordingAudioQuality,
                   style: AppTextStyles.bodySm(
                       c: AppColors.textSecondary)),
               const Spacer(),
@@ -462,7 +480,7 @@ class _AudioQualityCard extends StatelessWidget {
           ),
           if (level == AudioQualityLevel.poor) ...[
             const SizedBox(height: 8),
-            Text('💡 Dekati mikrofon atau kurangi noise di ruangan',
+            Text(s.recordingLowQualityTip,
                 style: AppTextStyles.bodySm(c: AppColors.warning)),
           ],
         ],
@@ -519,11 +537,13 @@ class _TranscriptLine {
 
 class _LiveTranscriptCard extends StatelessWidget {
   const _LiveTranscriptCard({
+    required this.s,
     required this.lines,
     required this.showTyping,
     required this.isLive,
   });
 
+  final AppStrings s;
   final List<_TranscriptLine> lines;
   final bool showTyping;
   final bool isLive;
@@ -550,7 +570,7 @@ class _LiveTranscriptCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Text('Transkripsi Berjalan',
+              Text(s.recordingLiveTranscriptTitle,
                   style: AppTextStyles.displayXs(w: FontWeight.w700)),
               const Spacer(),
               Container(
@@ -560,7 +580,7 @@ class _LiveTranscriptCard extends StatelessWidget {
                     color: isLive ? AppColors.success : AppColors.textTertiary),
               ),
               const SizedBox(width: 4),
-              Text(isLive ? 'Aktif' : 'Nonaktif',
+              Text(isLive ? s.recordingActive : s.recordingInactive,
                   style: AppTextStyles.bodySm(
                       c: isLive ? AppColors.success : AppColors.textTertiary,
                       w: FontWeight.w600)),
@@ -573,8 +593,8 @@ class _LiveTranscriptCard extends StatelessWidget {
           if (lines.isEmpty)
             Text(
               isLive
-                  ? 'Menunggu suara untuk ditranskripsi...'
-                  : 'Transkripsi live tidak tersedia. Notula tetap akan dibuat setelah rekaman selesai.',
+                  ? s.recordingWaitingForVoice
+                  : s.recordingLiveUnavailable,
               style: AppTextStyles.bodySm(c: AppColors.textTertiary),
             )
           else
@@ -689,11 +709,13 @@ class _TypingIndicatorState extends State<_TypingIndicator>
 
 class _RecordingControls extends StatelessWidget {
   const _RecordingControls({
+    required this.s,
     required this.isPaused,
     required this.onPause,
     required this.onDone,
   });
 
+  final AppStrings s;
   final bool isPaused;
   final VoidCallback onPause;
   final VoidCallback onDone;
@@ -752,7 +774,7 @@ class _RecordingControls extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text(
-            'Jeda atau selesai untuk tambah peserta',
+            s.recordingPauseOrDoneHint,
             style: AppTextStyles.caption(c: AppColors.textTertiary),
           ),
         ],
@@ -764,22 +786,23 @@ class _RecordingControls extends StatelessWidget {
 // ─── Confirm Exit Dialog ──────────────────────────────────────────────────────
 
 class _ConfirmExitDialog extends StatelessWidget {
-  const _ConfirmExitDialog({required this.onConfirm});
+  const _ConfirmExitDialog({required this.s, required this.onConfirm});
+  final AppStrings s;
   final VoidCallback onConfirm;
 
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
       shape: const RoundedRectangleBorder(borderRadius: AppRadius.lg),
-      title: Text('Hentikan rekaman?',
+      title: Text(s.recordingStopDialogTitle,
           style: AppTextStyles.displayXs()),
       content: Text(
-          'Rekaman akan dihentikan dan tidak tersimpan.',
+          s.recordingStopDialogBody,
           style: AppTextStyles.bodyMd(c: AppColors.textSecondary)),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: Text('Lanjutkan Rekam',
+          child: Text(s.recordingContinue,
               style: AppTextStyles.bodyMd(c: AppColors.primary)),
         ),
         TextButton(
@@ -787,7 +810,7 @@ class _ConfirmExitDialog extends StatelessWidget {
             Navigator.pop(context);
             onConfirm();
           },
-          child: Text('Hentikan',
+          child: Text(s.recordingStop,
               style: AppTextStyles.bodyMd(c: AppColors.error)),
         ),
       ],

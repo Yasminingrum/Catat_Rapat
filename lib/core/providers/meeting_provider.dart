@@ -1,7 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/meeting_model.dart';
+import '../services/notification_service.dart';
 import '../services/supabase_service.dart';
+import '../utils/date_formatter.dart';
 import 'auth_provider.dart';
+import 'settings_provider.dart';
 
 // ── Meeting List Provider ─────────────────────────────────────
 
@@ -36,11 +39,48 @@ class MeetingListNotifier extends StateNotifier<AsyncValue<List<Meeting>>> {
       state = AsyncValue.data(prev); // rollback
     }
   }
+
+  Future<void> toggleStar(String id) async {
+    final prev = state.value ?? [];
+    final matches = prev.where((m) => m.id == id);
+    if (matches.isEmpty) return;
+    final newValue = !matches.first.isStarred;
+    state = AsyncValue.data(prev.map((m) =>
+        m.id == id ? m.copyWith(isStarred: newValue) : m).toList());
+    try {
+      await _supa.updateMeeting(id, {'is_starred': newValue});
+    } catch (_) {
+      state = AsyncValue.data(prev); // rollback
+    }
+  }
 }
 
 final meetingListProvider =
     StateNotifierProvider<MeetingListNotifier, AsyncValue<List<Meeting>>>(
         (ref) => MeetingListNotifier(ref));
+
+// ── Visible Meetings Provider (menerapkan Retensi Rekaman) ────
+
+final visibleMeetingsProvider = Provider<AsyncValue<List<Meeting>>>((ref) {
+  final meetingsAsync = ref.watch(meetingListProvider);
+  final retention = ref.watch(settingsProvider).retention;
+
+  return meetingsAsync.whenData((meetings) {
+    final retentionDays = switch (retention) {
+      RetentionPeriod.days30 => 30,
+      RetentionPeriod.days90 => 90,
+      RetentionPeriod.year1 => 365,
+      RetentionPeriod.forever => null,
+    };
+    if (retentionDays == null) return meetings;
+
+    final cutoff = DateTime.now().subtract(Duration(days: retentionDays));
+    return meetings.where((m) {
+      final date = DateFormatter.parseDate(m.date);
+      return date == null || !date.isBefore(cutoff);
+    }).toList();
+  });
+});
 
 // ── Single Meeting Provider ───────────────────────────────────
 
@@ -56,10 +96,11 @@ final meetingProvider = FutureProvider.family<Meeting?, String>((ref, id) async 
 // ── Notula Provider ───────────────────────────────────────────
 
 class NotulaNotifier extends StateNotifier<Notula?> {
-  NotulaNotifier(this._meetingId) : super(null) {
+  NotulaNotifier(this._ref, this._meetingId) : super(null) {
     _load();
   }
 
+  final Ref _ref;
   final String _meetingId;
 
   Future<void> _load() async {
@@ -75,6 +116,20 @@ class NotulaNotifier extends StateNotifier<Notula?> {
   Future<void> save(Notula notula) async {
     state = notula;
     await SupabaseService.instance.saveNotula(_meetingId, notula);
+    await _syncActionReminders(notula.actionItems);
+  }
+
+  /// Menyinkronkan reminder action item dengan setting "Reminder Action Item"
+  /// dan status terkini setiap item.
+  Future<void> _syncActionReminders(List<ActionItem> items) async {
+    if (!_ref.read(settingsProvider).notifActionReminder) {
+      await NotificationService.instance.cancelActionItemReminders(
+          meetingId: _meetingId, itemIds: items.map((a) => a.id).toList());
+      return;
+    }
+    final meetingTitle = _ref.read(meetingProvider(_meetingId)).value?.title ?? '';
+    await NotificationService.instance.scheduleActionItemReminders(
+        meetingId: _meetingId, meetingTitle: meetingTitle, items: items);
   }
 
   void updateRingkasan(String text) {
@@ -112,11 +167,12 @@ class NotulaNotifier extends StateNotifier<Notula?> {
       return a;
     }).toList();
     state = state!.copyWith(actionItems: items);
+    _syncActionReminders(items);
   }
 }
 
 final notulaProvider = StateNotifierProvider.family<NotulaNotifier, Notula?, String>(
-    (ref, meetingId) => NotulaNotifier(meetingId));
+    (ref, meetingId) => NotulaNotifier(ref, meetingId));
 
 // ── Transcript Provider ───────────────────────────────────────
 

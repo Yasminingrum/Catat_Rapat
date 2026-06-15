@@ -1,14 +1,18 @@
 import 'dart:io';
 import 'dart:math' as math;
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_spacing.dart';
 import '../../../core/constants/app_text_styles.dart';
+import '../../../core/localization/app_strings.dart';
 import '../../../core/models/meeting_model.dart';
 import '../../../core/providers/auth_provider.dart';
+import '../../../core/providers/settings_provider.dart';
 import '../../../core/services/ai_service.dart';
+import '../../../core/services/notification_service.dart';
 import '../../../core/services/supabase_service.dart';
 import '../../../core/utils/env_config.dart';
 import '../../../core/widgets/app_button.dart';
@@ -39,11 +43,11 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen>
   String? _error;
   late AnimationController _loaderController;
 
-  static const List<_Stage> _stages = [
-    _Stage('Mengunggah file', 20),
-    _Stage('Menganalisis audio', 40),
-    _Stage('Mendeteksi speaker', 70),
-    _Stage('Membuat transkripsi', 95),
+  List<_Stage> _stages(AppStrings s) => [
+    _Stage(s.processingStageUpload, 20),
+    _Stage(s.processingStageAnalyze, 40),
+    _Stage(s.processingStageDetectSpeaker, 70),
+    _Stage(s.processingStageTranscribe, 95),
   ];
 
   @override
@@ -118,6 +122,21 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen>
       }
       await SupabaseService.instance.saveNotula(meeting.id, notula);
 
+      final settings = ref.read(settingsProvider);
+      if (settings.notifSummaryReady) {
+        await NotificationService.instance.showSummaryReadyNotification(
+          meetingId: meeting.id,
+          meetingTitle: widget.title,
+        );
+      }
+      if (settings.notifActionReminder && notula.actionItems.isNotEmpty) {
+        await NotificationService.instance.scheduleActionItemReminders(
+          meetingId: meeting.id,
+          meetingTitle: widget.title,
+          items: notula.actionItems,
+        );
+      }
+
       final durationLabel = _formatDuration(durationSeconds ?? 0);
       await SupabaseService.instance.updateMeeting(meeting.id, {
         'duration': durationLabel,
@@ -147,17 +166,38 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen>
       });
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = e.toString());
+      setState(() => _error = _friendlyError(e));
     }
   }
 
+  /// Mengubah error mentah (terutama dari panggilan API AI) menjadi pesan
+  /// yang lebih mudah dipahami pengguna.
+  String _friendlyError(Object e) {
+    final s = ref.read(appStringsProvider);
+    if (e is DioException) {
+      final status = e.response?.statusCode;
+      switch (status) {
+        case 401:
+          return s.processingErrorInvalidApiKey;
+        case 429:
+          return s.processingErrorRateLimit;
+        case null:
+          return s.processingErrorNoConnection;
+        default:
+          return s.processingErrorGeneric(status);
+      }
+    }
+    return e.toString();
+  }
+
   List<Participant> _participantsFromTranscript(List<TranscriptLine> transcript) {
+    final s = ref.read(appStringsProvider);
     final ids = transcript.map((l) => l.speakerId).toSet().toList()..sort();
     return ids.map((id) {
       final idx = int.tryParse(id.replaceAll('S', '')) ?? 1;
       return Participant(
         id: id,
-        label: 'Suara $idx',
+        label: s.assignSpeakerVoiceLabel(idx),
         name: '',
         color: AppColors.speakerColor(idx - 1),
         colorBg: AppColors.speakerBg(idx - 1),
@@ -173,25 +213,27 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen>
     return '${m}m ${s}s';
   }
 
-  String get _statusTitle {
-    if (_progress < 20) return 'Mengunggah file...';
-    if (_progress < 40) return 'Menganalisis audio...';
-    if (_progress < 70) return 'Mendeteksi speaker...';
-    if (_progress < 100) return 'Membuat transkripsi...';
-    return 'Selesai! ✓';
+  String _statusTitle(AppStrings s) {
+    if (_progress < 20) return s.processingStatusUploading;
+    if (_progress < 40) return s.processingStatusAnalyzing;
+    if (_progress < 70) return s.processingStatusDetecting;
+    if (_progress < 100) return s.processingStatusTranscribing;
+    return s.processingStatusDone;
   }
 
-  String get _statusSubtitle {
-    if (_progress >= 100) return 'Selesai';
-    if (_progress < 20) return 'Menyimpan rapat & mengunggah audio';
-    if (_progress < 75) return 'AI sedang menganalisis audio, proses ini bisa memakan waktu';
-    return 'Menyusun ringkasan dan action item';
+  String _statusSubtitle(AppStrings s) {
+    if (_progress >= 100) return s.processingSubtitleDone;
+    if (_progress < 20) return s.processingSubtitleUploading;
+    if (_progress < 75) return s.processingSubtitleAnalyzing;
+    return s.processingSubtitleFinalizing;
   }
 
   @override
   Widget build(BuildContext context) {
+    final s = ref.watch(appStringsProvider);
     if (_error != null) {
       return _ProcessingErrorView(
+        s: s,
         message: _error!,
         onRetry: _process,
         onCancel: () => context.pop(),
@@ -238,7 +280,7 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Memproses Rapat',
+                        Text(s.processingTitle,
                             style: AppTextStyles.displayMd()),
                         const SizedBox(height: 2),
                         Text(widget.title,
@@ -325,14 +367,14 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen>
                     AnimatedSwitcher(
                       duration: const Duration(milliseconds: 300),
                       child: Text(
-                        _statusTitle,
-                        key: ValueKey(_statusTitle),
+                        _statusTitle(s),
+                        key: ValueKey(_statusTitle(s)),
                         style: AppTextStyles.displaySm(),
                         textAlign: TextAlign.center,
                       ),
                     ),
                     const SizedBox(height: 6),
-                    Text(_statusSubtitle,
+                    Text(_statusSubtitle(s),
                         style: AppTextStyles.bodyMd(
                             c: AppColors.textSecondary),
                         textAlign: TextAlign.center),
@@ -365,7 +407,7 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen>
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text('FILE AUDIO',
+                                  Text(s.processingFileAudio,
                                       style: AppTextStyles.caption(
                                           c: AppColors.textTertiary)),
                                   Text(widget.fileName!,
@@ -380,7 +422,7 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen>
                       ),
 
                     // 4 stages
-                    ..._stages.map((stage) => _StageItem(
+                    ..._stages(s).map((stage) => _StageItem(
                           stage: stage,
                           progress: _progress,
                         )),
@@ -391,7 +433,7 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen>
                     if (!isDone)
                       TextButton(
                         onPressed: () => context.pop(),
-                        child: Text('Batalkan',
+                        child: Text(s.processingCancel,
                             style: AppTextStyles.bodyMd(
                                 c: AppColors.textTertiary,
                                 w: FontWeight.w500)),
@@ -411,11 +453,13 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen>
 
 class _ProcessingErrorView extends StatelessWidget {
   const _ProcessingErrorView({
+    required this.s,
     required this.message,
     required this.onRetry,
     required this.onCancel,
   });
 
+  final AppStrings s;
   final String message;
   final VoidCallback onRetry;
   final VoidCallback onCancel;
@@ -440,7 +484,7 @@ class _ProcessingErrorView extends StatelessWidget {
                     size: 32, color: AppColors.error),
               ),
               const SizedBox(height: AppSpacing.lg),
-              Text('Pemrosesan Gagal',
+              Text(s.processingErrorTitle,
                   style: AppTextStyles.displaySm(),
                   textAlign: TextAlign.center),
               const SizedBox(height: 8),
@@ -448,11 +492,11 @@ class _ProcessingErrorView extends StatelessWidget {
                   style: AppTextStyles.bodyMd(c: AppColors.textSecondary),
                   textAlign: TextAlign.center),
               const SizedBox(height: AppSpacing.xxl),
-              AppButton(label: 'Coba Lagi', onPressed: onRetry),
+              AppButton(label: s.processingRetry, onPressed: onRetry),
               const SizedBox(height: 8),
               TextButton(
                 onPressed: onCancel,
-                child: Text('Batalkan',
+                child: Text(s.processingCancel,
                     style: AppTextStyles.bodyMd(c: AppColors.textTertiary)),
               ),
             ],

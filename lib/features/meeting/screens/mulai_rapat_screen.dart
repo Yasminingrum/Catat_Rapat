@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_spacing.dart';
 import '../../../core/constants/app_text_styles.dart';
+import '../../../core/localization/app_strings.dart';
 import '../../../core/providers/auth_provider.dart';
 import '../../../core/utils/snackbar_util.dart';
 import '../../../core/widgets/app_button.dart';
@@ -45,7 +46,7 @@ class _MulaiRapatScreenState extends ConsumerState<MulaiRapatScreen> {
     super.dispose();
   }
 
-  Future<void> _pickFile() async {
+  Future<void> _pickFile(AppStrings s) async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: _allowedAudioExtensions,
@@ -55,7 +56,7 @@ class _MulaiRapatScreenState extends ConsumerState<MulaiRapatScreen> {
 
     final file = result.files.single;
     if (file.size > _maxAudioSizeBytes) {
-      if (mounted) SnackbarUtil.showError(context, 'Ukuran file maksimal 500 MB');
+      if (mounted) SnackbarUtil.showError(context, s.mulaiRapatFileSizeError);
       return;
     }
 
@@ -84,6 +85,7 @@ class _MulaiRapatScreenState extends ConsumerState<MulaiRapatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final s = ref.watch(appStringsProvider);
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
@@ -110,7 +112,7 @@ class _MulaiRapatScreenState extends ConsumerState<MulaiRapatScreen> {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  Text('Mulai Rapat Baru', style: AppTextStyles.displayMd()),
+                  Text(s.mulaiRapatTitle, style: AppTextStyles.displayMd()),
                 ],
               ),
             ),
@@ -131,20 +133,20 @@ class _MulaiRapatScreenState extends ConsumerState<MulaiRapatScreen> {
                     children: [
                       // Judul Rapat
                       AppTextField(
-                        label: 'Judul Rapat',
-                        hint: 'Contoh: Audit Proses PT Untung Terus',
+                        label: s.mulaiRapatTitleLabel,
+                        hint: s.mulaiRapatTitleHint,
                         controller: _titleController,
                         isRequired: true,
                         textInputAction: TextInputAction.next,
                         validator: (v) => (v == null || v.trim().isEmpty)
-                            ? 'Judul rapat wajib diisi' : null,
+                            ? s.mulaiRapatTitleRequired : null,
                       ),
                       const SizedBox(height: AppSpacing.lg),
 
                       // Agenda
                       AppTextField(
-                        label: 'Agenda (opsional)',
-                        hint: '1. Review temuan audit Q1\n2. Klarifikasi akuntansi piutang\n3. ...',
+                        label: s.mulaiRapatAgendaLabel,
+                        hint: s.mulaiRapatAgendaHint,
                         controller: _agendaController,
                         maxLines: 4,
                         minLines: 4,
@@ -153,11 +155,12 @@ class _MulaiRapatScreenState extends ConsumerState<MulaiRapatScreen> {
                       const SizedBox(height: AppSpacing.xl),
 
                       // Token card
-                      _TokenInfoCard(tokenLeft: ref.watch(currentUserProvider)?.tokenLeft ?? 0),
+                      _TokenInfoCard(s: s, tokenLeft: ref.watch(currentUserProvider)?.tokenLeft ?? 0),
                       const SizedBox(height: AppSpacing.xl),
 
                       // Mode selector
                       _ModeSelector(
+                        s: s,
                         selected: _mode,
                         onChanged: (m) => setState(() => _mode = m),
                       ),
@@ -171,8 +174,9 @@ class _MulaiRapatScreenState extends ConsumerState<MulaiRapatScreen> {
                             ? Column(
                                 children: [
                                   _UploadZone(
+                                    s: s,
                                     fileName: _selectedFileName,
-                                    onTap: _pickFile,
+                                    onTap: () => _pickFile(s),
                                   ),
                                   const SizedBox(height: AppSpacing.xl),
                                 ],
@@ -185,8 +189,8 @@ class _MulaiRapatScreenState extends ConsumerState<MulaiRapatScreen> {
                         listenable: _titleController,
                         builder: (context, _) => AppButton(
                           label: _mode == RecordMode.live
-                              ? 'Mulai Rekam'
-                              : 'Upload & Proses',
+                              ? s.mulaiRapatStartRecording
+                              : s.mulaiRapatUploadProcess,
                           onPressed: _canStart ? _start : null,
                           icon: Icon(
                             _mode == RecordMode.live
@@ -213,7 +217,8 @@ class _MulaiRapatScreenState extends ConsumerState<MulaiRapatScreen> {
 // ─── Token Info Card ──────────────────────────────────────────────────────────
 
 class _TokenInfoCard extends StatelessWidget {
-  const _TokenInfoCard({required this.tokenLeft});
+  const _TokenInfoCard({required this.s, required this.tokenLeft});
+  final AppStrings s;
   final int tokenLeft;
 
   @override
@@ -233,9 +238,9 @@ class _TokenInfoCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Sisa token bulan ini',
+                Text(s.mulaiRapatTokenRemaining,
                     style: AppTextStyles.bodySm(c: AppColors.primary)),
-                Text('$tokenLeft menit',
+                Text(s.mulaiRapatTokenMinutes(tokenLeft),
                     style: AppTextStyles.bodyMd(
                         c: AppColors.primary, w: FontWeight.w700)),
               ],
@@ -247,7 +252,7 @@ class _TokenInfoCard extends StatelessWidget {
               color: AppColors.surface,
               borderRadius: AppRadius.full,
             ),
-            child: Text('Free tier',
+            child: Text(s.mulaiRapatFreeTier,
                 style: AppTextStyles.caption(
                     c: AppColors.textSecondary, w: FontWeight.w600)),
           ),
@@ -260,7 +265,8 @@ class _TokenInfoCard extends StatelessWidget {
 // ─── Mode Selector ────────────────────────────────────────────────────────────
 
 class _ModeSelector extends StatelessWidget {
-  const _ModeSelector({required this.selected, required this.onChanged});
+  const _ModeSelector({required this.s, required this.selected, required this.onChanged});
+  final AppStrings s;
   final RecordMode selected;
   final void Function(RecordMode) onChanged;
 
@@ -269,7 +275,7 @@ class _ModeSelector extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('MODE REKAM', style: AppTextStyles.label()),
+        Text(s.mulaiRapatModeLabel, style: AppTextStyles.label()),
         const SizedBox(height: AppSpacing.sm),
         Container(
           decoration: BoxDecoration(
@@ -346,7 +352,8 @@ class _ModeTab extends StatelessWidget {
 // ─── Upload Zone ──────────────────────────────────────────────────────────────
 
 class _UploadZone extends StatelessWidget {
-  const _UploadZone({required this.fileName, required this.onTap});
+  const _UploadZone({required this.s, required this.fileName, required this.onTap});
+  final AppStrings s;
   final String? fileName;
   final VoidCallback onTap;
 
@@ -386,7 +393,7 @@ class _UploadZone extends StatelessWidget {
                         Text(fileName!,
                             style: AppTextStyles.bodyMd(w: FontWeight.w600),
                             overflow: TextOverflow.ellipsis),
-                        Text('File siap diproses',
+                        Text(s.mulaiRapatFileReady,
                             style: AppTextStyles.bodySm(
                                 c: AppColors.success)),
                       ],
@@ -407,10 +414,10 @@ class _UploadZone extends StatelessWidget {
                         color: AppColors.primary, size: 22),
                   ),
                   const SizedBox(height: 12),
-                  Text('Pilih file audio',
+                  Text(s.mulaiRapatChooseFile,
                       style: AppTextStyles.bodyMd(w: FontWeight.w600)),
                   const SizedBox(height: 4),
-                  Text('MP3, M4A, WAV, OGG · Maks 500 MB',
+                  Text(s.mulaiRapatFileFormats,
                       style: AppTextStyles.bodySm(
                           c: AppColors.textSecondary)),
                   const SizedBox(height: 16),
@@ -421,14 +428,14 @@ class _UploadZone extends StatelessWidget {
                       color: AppColors.primaryLight,
                       borderRadius: AppRadius.md,
                     ),
-                    child: Text('Browse File',
+                    child: Text(s.mulaiRapatBrowseFile,
                         style: AppTextStyles.bodyMd(
                             c: AppColors.primary,
                             w: FontWeight.w600)),
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    'File akan diproses AI untuk transkripsi.\nDurasi proses ≈ 30% dari durasi audio.',
+                    s.mulaiRapatProcessingNote,
                     style: AppTextStyles.bodySm(
                         c: AppColors.textTertiary),
                     textAlign: TextAlign.center,

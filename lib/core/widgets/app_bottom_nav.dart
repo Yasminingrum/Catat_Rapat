@@ -1,34 +1,39 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_text_styles.dart';
 import '../constants/app_spacing.dart';
+import '../localization/app_strings.dart';
 
-class AppBottomNav extends StatelessWidget {
+class AppBottomNav extends ConsumerWidget {
   const AppBottomNav({super.key, required this.currentIndex});
   final int currentIndex;
 
   @override
-  Widget build(BuildContext context) => Container(
-    height: 80,
-    decoration: const BoxDecoration(
-      color: AppColors.surface,
-      border: Border(top: BorderSide(color: AppColors.borderLight)),
-      boxShadow: [BoxShadow(color: Color(0x0A000000), offset: Offset(0,-2), blurRadius: 8)],
-    ),
-    child: SafeArea(top: false, child: Row(
-      mainAxisAlignment: MainAxisAlignment.spaceAround,
-      children: [
-        _NavBtn(icon: Icons.home_outlined, activeIcon: Icons.home_rounded,
-            label: 'Home', isActive: currentIndex == 0, onTap: () => context.go('/home')),
-        _NavBtn(icon: Icons.list_alt_outlined, activeIcon: Icons.list_alt_rounded,
-            label: 'Rapat', isActive: currentIndex == 1, onTap: () => context.go('/riwayat')),
-        _CenterFab(onTap: () => context.push('/mulai-rapat')),
-        _NavBtn(icon: Icons.person_outline_rounded, activeIcon: Icons.person_rounded,
-            label: 'Profil', isActive: currentIndex == 2, onTap: () => context.go('/profil')),
-      ],
-    )),
-  );
+  Widget build(BuildContext context, WidgetRef ref) {
+    final s = ref.watch(appStringsProvider);
+    return Container(
+      height: 80,
+      decoration: const BoxDecoration(
+        color: AppColors.surface,
+        border: Border(top: BorderSide(color: AppColors.borderLight)),
+        boxShadow: [BoxShadow(color: Color(0x0A000000), offset: Offset(0,-2), blurRadius: 8)],
+      ),
+      child: SafeArea(top: false, child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _NavBtn(icon: Icons.home_outlined, activeIcon: Icons.home_rounded,
+              label: s.navHome, isActive: currentIndex == 0, onTap: () => context.go('/home')),
+          _NavBtn(icon: Icons.list_alt_outlined, activeIcon: Icons.list_alt_rounded,
+              label: s.navMeetings, isActive: currentIndex == 1, onTap: () => context.go('/riwayat')),
+          _CenterFab(onTap: () => context.push('/mulai-rapat')),
+          _NavBtn(icon: Icons.person_outline_rounded, activeIcon: Icons.person_rounded,
+              label: s.navProfile, isActive: currentIndex == 2, onTap: () => context.go('/profil')),
+        ],
+      )),
+    );
+  }
 }
 
 class _NavBtn extends StatelessWidget {
