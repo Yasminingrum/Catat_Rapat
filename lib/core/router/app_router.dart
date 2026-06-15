@@ -5,6 +5,8 @@ import '../../features/onboarding/screens/onboarding_screen.dart';
 import '../../features/auth/screens/login_screen.dart';
 import '../../features/auth/screens/register_screen.dart';
 import '../../features/auth/screens/forgot_password_screen.dart';
+import '../../features/auth/screens/verify_email_screen.dart';
+import '../../features/auth/screens/reset_password_screen.dart';
 import '../../features/home/screens/home_screen.dart';
 import '../../features/home/screens/riwayat_screen.dart';
 import '../../features/meeting/screens/mulai_rapat_screen.dart';
@@ -48,13 +50,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final loc = state.matchedLocation;
 
       if (!isLoggedIn) {
-        final isPublicRoute = ['/login', '/register', '/forgot-password', '/onboarding']
+        final isPublicRoute = ['/login', '/register', '/forgot-password', '/verify-email', '/reset-password', '/onboarding']
             .any((r) => loc.startsWith(r));
         return isPublicRoute ? null : '/login';
       }
 
-      // Sudah login — jangan biarkan terjebak di onboarding/login/register.
-      final isEntryRoute = ['/login', '/register', '/onboarding']
+      // Sudah login — jangan biarkan terjebak di onboarding/login/register/verify-email/reset-password.
+      final isEntryRoute = ['/login', '/register', '/verify-email', '/reset-password', '/onboarding']
           .any((r) => loc.startsWith(r));
       return isEntryRoute ? '/home' : null;
     },
@@ -63,6 +65,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
       GoRoute(path: '/register', builder: (_, __) => const RegisterScreen()),
       GoRoute(path: '/forgot-password', builder: (_, __) => const ForgotPasswordScreen()),
+      GoRoute(path: '/verify-email', builder: (_, s) {
+        final e = s.extra as Map<String, dynamic>? ?? {};
+        return VerifyEmailScreen(email: e['email'] as String? ?? '');
+      }),
+      GoRoute(path: '/reset-password', builder: (_, s) {
+        final e = s.extra as Map<String, dynamic>? ?? {};
+        return ResetPasswordScreen(email: e['email'] as String? ?? '');
+      }),
 
       GoRoute(path: '/home', builder: (_, __) => const HomeScreen()),
       GoRoute(path: '/riwayat', builder: (_, __) => const RiwayatScreen()),

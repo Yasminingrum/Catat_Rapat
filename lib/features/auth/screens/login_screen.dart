@@ -26,7 +26,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Future<void> _login(AppStrings s) async {
     if (!_formKey.currentState!.validate()) return;
     final ok = await ref.read(authProvider.notifier).login(_emailCtrl.text.trim(), _passCtrl.text);
-    if (!ok && mounted) SnackbarUtil.showError(context, ref.read(authProvider).error ?? s.authLoginFailed);
+    if (ok || !mounted) return;
+    final authState = ref.read(authProvider);
+    if (authState.pendingVerificationEmail != null) {
+      SnackbarUtil.showError(context, authState.error ?? s.authLoginFailed);
+      context.push('/verify-email', extra: {'email': authState.pendingVerificationEmail});
+      return;
+    }
+    SnackbarUtil.showError(context, authState.error ?? s.authLoginFailed);
   }
 
   Future<void> _loginWithGoogle(AppStrings s) async {

@@ -48,7 +48,7 @@ class ProfilScreen extends ConsumerWidget {
             _SectionHeader(s.profilSectionAccount),
             _MenuItem(s.profilChangeName, Icons.person_outline_rounded, onTap: () => _editName(context, ref, user, s)),
             _MenuItem(s.profilChangeEmail, Icons.email_outlined, onTap: () => _editEmail(context, ref, user, s)),
-            _MenuItem(s.profilChangePassword, Icons.lock_outline_rounded, onTap: (){}),
+            _MenuItem(s.profilChangePassword, Icons.lock_outline_rounded, onTap: () => _changePassword(context, ref, s)),
             _MenuItem(s.profilDeleteAccount, Icons.delete_outline_rounded,
                 textColor: AppColors.error, onTap: (){}),
             const SizedBox(height: 16),
@@ -206,6 +206,19 @@ Future<void> _editEmail(BuildContext context, WidgetRef ref, AppUser? user, AppS
   }
 }
 
+Future<void> _changePassword(BuildContext context, WidgetRef ref, AppStrings s) async {
+  final result = await showDialog<bool>(
+    context: context,
+    builder: (_) => _ChangePasswordDialog(s: s),
+  );
+  if (!context.mounted) return;
+  if (result == true) {
+    SnackbarUtil.showSuccess(context, s.profilPasswordUpdated);
+  } else if (result == false) {
+    SnackbarUtil.showError(context, s.profilPasswordUpdateFailed);
+  }
+}
+
 class _EditNameDialog extends ConsumerStatefulWidget {
   const _EditNameDialog({required this.initialName, required this.s});
   final String initialName;
@@ -312,6 +325,78 @@ class _EditEmailDialogState extends ConsumerState<_EditEmailDialog> {
           child: _saving
               ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
               : Text(widget.s.profilSend)),
+    ],
+  );
+}
+
+class _ChangePasswordDialog extends ConsumerStatefulWidget {
+  const _ChangePasswordDialog({required this.s});
+  final AppStrings s;
+  @override ConsumerState<_ChangePasswordDialog> createState() => _ChangePasswordDialogState();
+}
+
+class _ChangePasswordDialogState extends ConsumerState<_ChangePasswordDialog> {
+  final _passCtrl = TextEditingController();
+  final _confirmCtrl = TextEditingController();
+  bool _saving = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _passCtrl.dispose();
+    _confirmCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final pass = _passCtrl.text;
+    if (pass.length < 8) {
+      setState(() => _error = widget.s.validationPasswordMinLength);
+      return;
+    }
+    if (pass != _confirmCtrl.text) {
+      setState(() => _error = widget.s.validationPasswordMismatch);
+      return;
+    }
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    final ok = await ref.read(authProvider.notifier).changePassword(pass);
+    if (!mounted) return;
+    Navigator.of(context).pop(ok);
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: Text(widget.s.profilChangePasswordTitle, style: AppTextStyles.displaySm()),
+    content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+      TextField(
+        controller: _passCtrl,
+        autofocus: true,
+        obscureText: true,
+        decoration: InputDecoration(hintText: widget.s.authNewPasswordLabel),
+      ),
+      const SizedBox(height: 8),
+      TextField(
+        controller: _confirmCtrl,
+        obscureText: true,
+        decoration: InputDecoration(hintText: widget.s.authConfirmPasswordLabel),
+      ),
+      if (_error != null) ...[
+        const SizedBox(height: 4),
+        Text(_error!, style: AppTextStyles.caption(c: AppColors.error)),
+      ],
+    ]),
+    actions: [
+      TextButton(
+          onPressed: _saving ? null : () => Navigator.of(context).pop(),
+          child: Text(widget.s.commonCancel)),
+      TextButton(
+          onPressed: _saving ? null : _save,
+          child: _saving
+              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+              : Text(widget.s.commonSave)),
     ],
   );
 }

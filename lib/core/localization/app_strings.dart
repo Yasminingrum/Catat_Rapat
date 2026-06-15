@@ -106,6 +106,11 @@ class AppStrings {
   String get profilEmailConfirmSent => _t('Tautan konfirmasi telah dikirim ke email baru', 'A confirmation link has been sent to the new email');
   String get profilEmailUpdateFailed => _t('Gagal mengubah email', 'Failed to update email');
 
+  // ── Dialog ganti password ────────────────────────────────
+  String get profilChangePasswordTitle => _t('Ganti Password', 'Change Password');
+  String get profilPasswordUpdated => _t('Password berhasil diperbarui', 'Password updated successfully');
+  String get profilPasswordUpdateFailed => _t('Gagal memperbarui password', 'Failed to update password');
+
   // ── Onboarding ───────────────────────────────────────────
   String get onboardingSkip => _t('Lewati', 'Skip');
   String get onboardingStart => _t('Mulai Sekarang ✨', 'Get Started ✨');
@@ -152,13 +157,32 @@ class AppStrings {
 
   String get authForgotPasswordTitle => _t('Lupa Password?', 'Forgot Password?');
   String get authForgotPasswordBody => _t(
-      'Masukkan alamat email terdaftar dan kami akan mengirimkan link reset password.',
-      'Enter your registered email address and we will send you a password reset link.');
+      'Masukkan alamat email terdaftar dan kami akan mengirimkan kode OTP untuk reset password.',
+      'Enter your registered email address and we will send you an OTP code to reset your password.');
   String get authResetPasswordButton => _t('Reset Password', 'Reset Password');
-  String get authEmailSentTitle => _t('Email Terkirim!', 'Email Sent!');
-  String authEmailSentBody(String email) =>
-      _t('Cek inbox $email untuk link reset password.', 'Check your inbox at $email for the password reset link.');
-  String get authBackToLogin => _t('Kembali ke Login', 'Back to Login');
+  String get authResetPasswordSendFailed => _t('Gagal mengirim kode reset password', 'Failed to send password reset code');
+
+  // ── Reset Password (OTP) ──────────────────────────────────
+  String get authResetPasswordTitle => _t('Reset Password', 'Reset Password');
+  String authResetPasswordBody(String email) => _t(
+      'Kami telah mengirim kode verifikasi 6 digit ke $email. Masukkan kode tersebut beserta password baru Anda.',
+      'We sent a 6-digit verification code to $email. Enter it below along with your new password.');
+  String get authNewPasswordLabel => _t('Password Baru', 'New Password');
+  String get authResetPasswordFailed => _t('Reset password gagal', 'Password reset failed');
+
+  // ── Verifikasi Email (OTP) ────────────────────────────────
+  String get authVerifyTitle => _t('Verifikasi Email', 'Verify Email');
+  String authVerifyBody(String email) => _t(
+      'Kami telah mengirim kode verifikasi 6 digit ke $email. Masukkan kode tersebut untuk mengaktifkan akun Anda.',
+      'We sent a 6-digit verification code to $email. Enter it below to activate your account.');
+  String get authVerifyCodeLabel => _t('Kode Verifikasi', 'Verification Code');
+  String get authVerifyCodeHint => _t('123456', '123456');
+  String get authVerifyButton => _t('Verifikasi', 'Verify');
+  String get authVerifyFailed => _t('Verifikasi gagal', 'Verification failed');
+  String get authVerifyResend => _t('Kirim ulang kode', 'Resend code');
+  String authVerifyResendCooldown(int seconds) => _t('Kirim ulang dalam ${seconds}d', 'Resend in ${seconds}s');
+  String get authVerifyCodeResent => _t('Kode verifikasi baru telah dikirim', 'A new verification code has been sent');
+  String get authVerifyResendFailed => _t('Gagal mengirim ulang kode', 'Failed to resend code');
 
   // ── Validasi Form ────────────────────────────────────────
   String get validationEmailRequired => _t('Email wajib diisi', 'Email is required');
@@ -167,6 +191,8 @@ class AppStrings {
   String get validationPasswordMinLength => _t('Password minimal 8 karakter', 'Password must be at least 8 characters');
   String validationFieldRequired(String field) => _t('$field wajib diisi', '$field is required');
   String get validationPasswordMismatch => _t('Password tidak cocok', 'Passwords do not match');
+  String get validationOtpRequired => _t('Kode verifikasi wajib diisi', 'Verification code is required');
+  String get validationOtpInvalid => _t('Kode verifikasi harus 6 digit', 'Verification code must be 6 digits');
 
   String? Function(String?) get validateEmail => (v) {
         if (v == null || v.trim().isEmpty) return validationEmailRequired;
@@ -187,6 +213,12 @@ class AppStrings {
 
   String? Function(String?) validateConfirmPassword(String original) => (v) {
         if (v != original) return validationPasswordMismatch;
+        return null;
+      };
+
+  String? Function(String?) get validateOtpCode => (v) {
+        if (v == null || v.trim().isEmpty) return validationOtpRequired;
+        if (!RegExp(r'^\d{6}$').hasMatch(v.trim())) return validationOtpInvalid;
         return null;
       };
 

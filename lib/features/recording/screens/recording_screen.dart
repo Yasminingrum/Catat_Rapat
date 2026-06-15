@@ -50,6 +50,13 @@ class _RecordingScreenState extends ConsumerState<RecordingScreen>
   final List<_TranscriptLine> _transcriptLines = [];
   bool _showTyping = false;
 
+  // Heuristik pergantian speaker live: jeda > _speakerChangeGapSeconds detik
+  // antar potongan transkrip dianggap pembicara berganti (selaras dengan
+  // heuristik post-processing di ai_service.dart).
+  static const _speakerChangeGapSeconds = 1.5;
+  DateTime? _lastTranscriptAt;
+  int _liveSpeakerIdx = 0;
+
   late AnimationController _pulseController;
 
   @override
@@ -96,8 +103,18 @@ class _RecordingScreenState extends ConsumerState<RecordingScreen>
       await _liveTranscription.connect();
       _transcriptSub = _liveTranscription.transcriptStream.listen((text) {
         if (!mounted) return;
+        final now = DateTime.now();
+        if (_lastTranscriptAt != null &&
+            now.difference(_lastTranscriptAt!).inMilliseconds / 1000 > _speakerChangeGapSeconds) {
+          _liveSpeakerIdx = (_liveSpeakerIdx + 1) % 3;
+        }
+        _lastTranscriptAt = now;
         setState(() {
-          _transcriptLines.add(_TranscriptLine(speaker: 'Live', speakerIdx: 0, text: text));
+          _transcriptLines.add(_TranscriptLine(
+            speaker: ref.read(appStringsProvider).assignSpeakerVoiceLabel(_liveSpeakerIdx + 1),
+            speakerIdx: _liveSpeakerIdx,
+            text: text,
+          ));
         });
       });
     }

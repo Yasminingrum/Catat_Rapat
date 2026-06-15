@@ -30,18 +30,18 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
   Future<void> _register(AppStrings s) async {
     if (!_formKey.currentState!.validate()) return;
+    final email = _emailCtrl.text.trim();
     final ok = await ref.read(authProvider.notifier)
-        .register(_nameCtrl.text.trim(), _emailCtrl.text.trim(), _passCtrl.text);
+        .register(_nameCtrl.text.trim(), email, _passCtrl.text);
     if (!mounted) return;
     final authState = ref.read(authProvider);
     if (!ok) {
       SnackbarUtil.showError(context, authState.error ?? s.authRegisterFailed);
       return;
     }
-    if (authState.message != null) {
-      // Registrasi berhasil tapi menunggu verifikasi email.
-      SnackbarUtil.showSuccess(context, authState.message!);
-      context.go('/login');
+    if (authState.pendingVerificationEmail != null) {
+      // Registrasi berhasil tapi menunggu verifikasi kode OTP via email.
+      context.push('/verify-email', extra: {'email': authState.pendingVerificationEmail});
     }
   }
 

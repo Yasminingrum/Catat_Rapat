@@ -36,6 +36,27 @@ class SupabaseService {
         redirectTo: 'io.supabase.catatrapat://login-callback/',
       );
 
+  /// Memverifikasi kode OTP 6-digit yang dikirim ke email saat registrasi.
+  Future<AuthResponse> verifySignupOtp(String email, String token) =>
+      _client.auth.verifyOTP(type: OtpType.signup, email: email, token: token);
+
+  /// Mengirim ulang kode OTP verifikasi signup ke email.
+  Future<void> resendSignupOtp(String email) =>
+      _client.auth.resend(type: OtpType.signup, email: email);
+
+  /// Mengirim kode OTP reset password (recovery) ke email.
+  Future<void> resetPasswordForEmail(String email) =>
+      _client.auth.resetPasswordForEmail(email);
+
+  /// Memverifikasi kode OTP recovery 6-digit, membuat sesi sementara
+  /// yang dipakai untuk mengganti password.
+  Future<AuthResponse> verifyRecoveryOtp(String email, String token) =>
+      _client.auth.verifyOTP(type: OtpType.recovery, email: email, token: token);
+
+  /// Mengganti password akun pada sesi yang sedang aktif.
+  Future<void> updateUserPassword(String password) =>
+      _client.auth.updateUser(UserAttributes(password: password));
+
   Future<void> signOut() => _client.auth.signOut();
 
   User? get currentUser => _client.auth.currentUser;

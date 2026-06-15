@@ -98,10 +98,21 @@ class NotulaScreen extends ConsumerWidget {
                             const SizedBox(width:10),
                             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                               Text(e.value.text, style: AppTextStyles.bodyMd(w: FontWeight.w500)),
-                              if (e.value.assignee.isNotEmpty) ...[
+                              if (e.value.assignee.isNotEmpty || e.value.deadline.isNotEmpty) ...[
                                 const SizedBox(height:2),
-                                Text('→ ${e.value.assignee}',
-                                    style: AppTextStyles.caption(c: AppColors.primary, w: FontWeight.w600)),
+                                Row(children: [
+                                  if (e.value.assignee.isNotEmpty)
+                                    Text('→ ${e.value.assignee}',
+                                        style: AppTextStyles.caption(c: AppColors.primary, w: FontWeight.w600)),
+                                  if (e.value.assignee.isNotEmpty && e.value.deadline.isNotEmpty)
+                                    const SizedBox(width: 10),
+                                  if (e.value.deadline.isNotEmpty) ...[
+                                    const Icon(Icons.calendar_today_outlined, size: 11, color: AppColors.textTertiary),
+                                    const SizedBox(width: 4),
+                                    Text(e.value.deadline,
+                                        style: AppTextStyles.caption(c: AppColors.textTertiary, w: FontWeight.w600)),
+                                  ],
+                                ]),
                               ],
                             ])),
                           ]),
