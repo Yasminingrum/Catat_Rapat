@@ -129,7 +129,7 @@ class _Stat extends StatelessWidget {
       const SizedBox(height: 8),
       Text(value, style: AppTextStyles.displayMd(w: FontWeight.w800)),
       const SizedBox(height: 2),
-      Text(label, style: AppTextStyles.caption(c: AppColors.textSecondary), maxLines: 1, overflow: TextOverflow.ellipsis),
+      Text(label, style: AppTextStyles.caption(c: AppColors.textSecondary), maxLines: 2, overflow: TextOverflow.ellipsis),
     ]));
 }
 
@@ -139,7 +139,7 @@ class _QuickActionCard extends StatelessWidget {
   final VoidCallback onTap;
   @override Widget build(BuildContext context) => GestureDetector(
     onTap: onTap,
-    child: Container(height: 136, padding: const EdgeInsets.all(20),
+    child: Container(padding: const EdgeInsets.all(20),
       decoration: const BoxDecoration(gradient: AppColors.quickActionGradient,
           borderRadius: AppRadius.xl, boxShadow: AppShadows.buttonPrimary),
       child: Row(children: [

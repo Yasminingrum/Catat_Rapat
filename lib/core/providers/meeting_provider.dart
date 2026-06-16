@@ -40,6 +40,11 @@ class MeetingListNotifier extends StateNotifier<AsyncValue<List<Meeting>>> {
     }
   }
 
+  Future<void> deleteAllMeetings() async {
+    await _supa.deleteAllMeetings();
+    state = const AsyncValue.data([]);
+  }
+
   Future<void> toggleStar(String id) async {
     final prev = state.value ?? [];
     final matches = prev.where((m) => m.id == id);

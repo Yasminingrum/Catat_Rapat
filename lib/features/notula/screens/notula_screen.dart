@@ -125,13 +125,11 @@ class NotulaScreen extends ConsumerWidget {
                     decoration: BoxDecoration(color: AppColors.surface, borderRadius: AppRadius.lg,
                         border: Border.all(color: AppColors.borderLight), boxShadow: AppShadows.card),
                     child: Column(children: [
-                      if (m?.hasAudio == true || m?.audioPath != null) ...[
-                        _QuickLinkRow(icon: Icons.volume_up_rounded,
-                            iconBg: AppColors.successLight, iconColor: AppColors.success,
-                            label: s.notulaListenAudio,
-                            onTap: () => context.push('/rapat/$meetingId/audio')),
-                        const Divider(height:1, indent:16, endIndent:16),
-                      ],
+                      _QuickLinkRow(icon: Icons.volume_up_rounded,
+                          iconBg: AppColors.successLight, iconColor: AppColors.success,
+                          label: s.notulaListenAudio,
+                          onTap: () => context.push('/rapat/$meetingId/audio')),
+                      const Divider(height:1, indent:16, endIndent:16),
                       _QuickLinkRow(icon: Icons.description_outlined,
                           iconBg: AppColors.primaryLight, iconColor: AppColors.primary,
                           label: s.notulaViewTranscript,

@@ -397,6 +397,20 @@ class AppStrings {
   String get unduhNotulaDocxSubtitle => _t('Microsoft Word, bisa diedit lanjut', 'Microsoft Word, further editable');
   String get unduhNotulaTxtSubtitle => _t('Teks polos, ukuran file kecil', 'Plain text, small file size');
 
+  // ── Hapus Data & Akun ────────────────────────────────────
+  String get profilDeleteAllDataTitle => _t('Hapus Semua Data Rapat?', 'Delete All Meeting Data?');
+  String get profilDeleteAllDataBody => _t(
+      'Semua rapat, transkripsi, dan notula akan dihapus permanen. Tindakan ini tidak dapat dibatalkan.',
+      'All meetings, transcripts, and minutes will be permanently deleted. This action cannot be undone.');
+  String get profilDeleteAllDataSuccess => _t('Semua data rapat berhasil dihapus', 'All meeting data deleted successfully');
+  String get profilDeleteAllDataFailed => _t('Gagal menghapus data rapat', 'Failed to delete meeting data');
+
+  String get profilDeleteAccountTitle => _t('Hapus Akun?', 'Delete Account?');
+  String get profilDeleteAccountBody => _t(
+      'Akun dan seluruh data Anda akan dihapus permanen, termasuk semua rapat, transkripsi, dan notula. Tindakan ini tidak dapat dibatalkan.',
+      'Your account and all data will be permanently deleted, including all meetings, transcripts, and minutes. This action cannot be undone.');
+  String get profilDeleteAccountFailed => _t('Gagal menghapus akun', 'Failed to delete account');
+
   // ── Upgrade ──────────────────────────────────────────────
   String get upgradeBadge => 'CatatRapat Premium';
   String get upgradeHeadline => _t('Rapatmu Lebih\nProduktif', 'Your Meetings,\nMore Productive');

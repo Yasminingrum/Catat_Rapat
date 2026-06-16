@@ -7,6 +7,7 @@ import '../../../core/constants/app_text_styles.dart';
 import '../../../core/localization/app_strings.dart';
 import '../../../core/models/user_model.dart';
 import '../../../core/providers/auth_provider.dart';
+import '../../../core/providers/meeting_provider.dart';
 import '../../../core/providers/settings_provider.dart';
 import '../../../core/services/notification_service.dart';
 import '../../../core/utils/snackbar_util.dart';
@@ -50,7 +51,7 @@ class ProfilScreen extends ConsumerWidget {
             _MenuItem(s.profilChangeEmail, Icons.email_outlined, onTap: () => _editEmail(context, ref, user, s)),
             _MenuItem(s.profilChangePassword, Icons.lock_outline_rounded, onTap: () => _changePassword(context, ref, s)),
             _MenuItem(s.profilDeleteAccount, Icons.delete_outline_rounded,
-                textColor: AppColors.error, onTap: (){}),
+                textColor: AppColors.error, onTap: () => _deleteAccount(context, ref, s)),
             const SizedBox(height: 16),
 
             // Preferensi
@@ -88,7 +89,7 @@ class ProfilScreen extends ConsumerWidget {
             _MenuItemWithValue(s.profilRetention, Icons.storage_outlined, s.retentionPeriodLabel(settings.retention),
                 onTap: () => _pickRetention(context, ref, settings.retention, s)),
             _MenuItem(s.profilDeleteAllData, Icons.delete_forever_outlined,
-                textColor: AppColors.error, onTap: (){}),
+                textColor: AppColors.error, onTap: () => _deleteAllData(context, ref, s)),
             const SizedBox(height: 16),
 
             // Langganan + Token
@@ -216,6 +217,57 @@ Future<void> _changePassword(BuildContext context, WidgetRef ref, AppStrings s) 
     SnackbarUtil.showSuccess(context, s.profilPasswordUpdated);
   } else if (result == false) {
     SnackbarUtil.showError(context, s.profilPasswordUpdateFailed);
+  }
+}
+
+Future<void> _deleteAllData(BuildContext context, WidgetRef ref, AppStrings s) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: Text(s.profilDeleteAllDataTitle, style: AppTextStyles.displaySm()),
+      content: Text(s.profilDeleteAllDataBody, style: AppTextStyles.bodyMd()),
+      actions: [
+        TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: Text(s.commonCancel)),
+        TextButton(
+          onPressed: () => Navigator.of(ctx).pop(true),
+          style: TextButton.styleFrom(foregroundColor: AppColors.error),
+          child: Text(s.commonDelete),
+        ),
+      ],
+    ),
+  );
+  if (confirmed != true || !context.mounted) return;
+  try {
+    await ref.read(meetingListProvider.notifier).deleteAllMeetings();
+    if (context.mounted) SnackbarUtil.showSuccess(context, s.profilDeleteAllDataSuccess);
+  } catch (_) {
+    if (context.mounted) SnackbarUtil.showError(context, s.profilDeleteAllDataFailed);
+  }
+}
+
+Future<void> _deleteAccount(BuildContext context, WidgetRef ref, AppStrings s) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: Text(s.profilDeleteAccountTitle, style: AppTextStyles.displaySm()),
+      content: Text(s.profilDeleteAccountBody, style: AppTextStyles.bodyMd()),
+      actions: [
+        TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: Text(s.commonCancel)),
+        TextButton(
+          onPressed: () => Navigator.of(ctx).pop(true),
+          style: TextButton.styleFrom(foregroundColor: AppColors.error),
+          child: Text(s.commonDelete),
+        ),
+      ],
+    ),
+  );
+  if (confirmed != true || !context.mounted) return;
+  final ok = await ref.read(authProvider.notifier).deleteAccount();
+  if (!context.mounted) return;
+  if (ok) {
+    context.go('/login');
+  } else {
+    SnackbarUtil.showError(context, s.profilDeleteAccountFailed);
   }
 }
 

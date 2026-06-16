@@ -250,6 +250,15 @@ class AuthNotifier extends StateNotifier<AuthState> {
       return true;
     } catch (_) { return false; }
   }
+
+  /// Menghapus semua data pengguna dan mengakhiri sesi.
+  Future<bool> deleteAccount() async {
+    try {
+      await _supa.deleteAccount();
+      state = const AuthState();
+      return true;
+    } catch (_) { return false; }
+  }
 }
 
 // ── Providers ─────────────────────────────────────────────────

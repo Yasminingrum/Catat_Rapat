@@ -97,6 +97,12 @@ class SupabaseService {
   Future<void> deleteMeeting(String id) =>
       _client.from('meetings').delete().eq('id', id);
 
+  Future<void> deleteAllMeetings() async {
+    final uid = currentUser?.id;
+    if (uid == null) return;
+    await _client.from('meetings').delete().eq('user_id', uid);
+  }
+
   // ─── Notula ────────────────────────────────────────────────
 
   Future<Notula?> getNotula(String meetingId) async {
@@ -193,6 +199,17 @@ class SupabaseService {
     final uid = currentUser?.id;
     if (uid == null) return;
     await _client.from('profiles').update(data).eq('id', uid);
+  }
+
+  /// Menghapus semua data pengguna lalu sign out.
+  /// Catatan: auth user di Supabase hanya bisa dihapus via server/admin.
+  /// Di sisi client, data di-wipe dan sesi dihentikan.
+  Future<void> deleteAccount() async {
+    final uid = currentUser?.id;
+    if (uid == null) return;
+    await _client.from('meetings').delete().eq('user_id', uid);
+    await _client.from('profiles').delete().eq('id', uid);
+    await _client.auth.signOut();
   }
 
   /// Mengubah alamat email akun. Supabase mengirim tautan konfirmasi ke
