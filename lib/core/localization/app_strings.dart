@@ -84,12 +84,12 @@ class AppStrings {
   String get profilSectionSubscription => _t('LANGGANAN', 'SUBSCRIPTION');
   String get profilActive => _t('Aktif', 'Active');
   String get profilTokenRemaining => _t('Token AI tersisa', 'AI Tokens Remaining');
-  String get profilResetDate => _t('Reset tanggal 1 setiap bulan', 'Resets on the 1st of every month');
+  String get profilResetDate => _t('Reset setiap tanggal pendaftaran', 'Resets monthly on your signup date');
   String get profilUpgrade => _t('⚡ Upgrade ke Premium', '⚡ Upgrade to Premium');
   String get profilLogout => _t('Keluar', 'Log Out');
   String get profilPlanFree => _t('Paket Gratis', 'Free Plan');
   String get profilPlanPro => _t('Paket Pro', 'Pro Plan');
-  String get profilPlanBusiness => _t('Paket Business', 'Business Plan');
+  String get profilPlanPlatinum => _t('Paket Platinum', 'Platinum Plan');
   String get profilDefaultUser => _t('Pengguna', 'User');
 
   // ── Dialog edit nama/email ───────────────────────────────
@@ -409,20 +409,27 @@ class AppStrings {
   String get upgradeMonthly => _t('Bulanan', 'Monthly');
   String get upgradeYearly => _t('Tahunan', 'Yearly');
   String get upgradePerMonth => _t('/bulan', '/month');
-  String get upgradeSaveBadge => _t('Hemat 41%', 'Save 41%');
-  String get upgradeBilledYearly => _t('Ditagih Rp 348.000/tahun', 'Billed Rp 348.000/year');
+  String get upgradePerYear => _t('/tahun', '/year');
+  String get upgradeSaveBadge => _t('Hemat 16%', 'Save 16%');
+  String get upgradeBilledYearly => _t('Ditagih Rp 999.000/tahun', 'Billed Rp 999.000/year');
+  String get upgradePlanFree => _t('Gratis', 'Free');
+  String get upgradePlanPro => _t('Pro', 'Pro');
+  String get upgradePlanPlatinum => _t('Platinum', 'Platinum');
+  String get upgradePriceFree => _t('Gratis', 'Free');
+  String get upgradeBilledYearlyPro => _t('Ditagih Rp 1.999.000/tahun', 'Billed Rp 1,999,000/year');
+  String get upgradeBilledYearlyPlatinum => _t('Ditagih Rp 5.499.000/tahun', 'Billed Rp 5,499,000/year');
   String get upgradePremiumFeaturesLabel => _t('FITUR PREMIUM', 'PREMIUM FEATURES');
   String get upgradeFreeTierLabel => _t('FREE TIER KAMU', 'YOUR FREE TIER');
   String get upgradeTestimonial => _t(
       '"Notulanya langsung jadi setelah rapat selesai. Hemat 2 jam per minggu buat tim kami!"',
       '"The minutes are ready right after the meeting ends. Saves our team 2 hours a week!"');
   String get upgradeTestimonialRole => _t('Manajer Proyek', 'Project Manager');
-  String upgradeCtaStart(String priceLabel) => _t('Mulai $priceLabel/bulan', 'Start $priceLabel/month');
+  String upgradeCtaStart(String priceLabel) => _t('Mulai $priceLabel', 'Start $priceLabel');
   String get upgradeCtaFootnote => _t('Batalkan kapan saja · Tanpa biaya tersembunyi', 'Cancel anytime · No hidden fees');
   String get upgradePaymentUnavailable => _t('Pembayaran belum tersedia di versi ini.', 'Payment is not available in this version yet.');
 
-  String get upgradeFeatureRecordingTitle => _t('Rekaman Unlimited', 'Unlimited Recording');
-  String get upgradeFeatureRecordingSubtitle => _t('Tidak ada batas durasi rekaman', 'No limit on recording duration');
+  String get upgradeFeatureRecordingTitle => _t('Kuota Rekaman Lebih Besar', 'More Recording Quota');
+  String get upgradeFeatureRecordingSubtitle => _t('Pro: 1.000 menit · Platinum: 3.000 menit/bulan', 'Pro: 1,000 min · Platinum: 3,000 min/month');
   String get upgradeFeatureNotulaTitle => _t('Notula AI Otomatis', 'Automatic AI Minutes');
   String get upgradeFeatureNotulaSubtitle => _t('Generate notula tak terbatas', 'Generate unlimited minutes');
   String get upgradeFeatureParticipantsTitle => _t('Peserta Unlimited', 'Unlimited Participants');
@@ -434,10 +441,12 @@ class AppStrings {
   String get upgradeFeatureEncryptionTitle => _t('Enkripsi End-to-End', 'End-to-End Encryption');
   String get upgradeFeatureEncryptionSubtitle => _t('Keamanan data rapat terjamin', 'Meeting data security guaranteed');
 
-  String get upgradeFreeMinutes => _t('847 menit/bulan', '847 minutes/month');
+  String get upgradeFreeMinutes => _t('60 menit/bulan', '60 minutes/month');
   String get upgradeFreeSpeakers => _t('Maksimal 3 pembicara', 'Maximum 3 speakers');
   String get upgradeFreeHistory => _t('Riwayat 30 hari', '30-day history');
   String get upgradeFreeModel => _t('Model AI standar', 'Standard AI model');
+  String get upgradeProQuota => _t('1.000 menit/bulan', '1,000 min/month');
+  String get upgradePlatinumQuota => _t('3.000 menit/bulan', '3,000 min/month');
 
   // ── Pengaturan: label opsi ────────────────────────────────
   String recordingQualityLabel(RecordingQuality q) => switch (q) {

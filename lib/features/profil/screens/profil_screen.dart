@@ -112,7 +112,7 @@ class ProfilScreen extends ConsumerWidget {
                 Row(children: [
                   Text(s.profilTokenRemaining, style: AppTextStyles.bodyMd(c: AppColors.textSecondary)),
                   const Spacer(),
-                  Text('${user?.tokenLeft ?? 3200} / ${user?.tokenTotal ?? 5000}',
+                  Text('${user?.tokenLeft ?? 60} / ${user?.tokenTotal ?? 60}',
                       style: AppTextStyles.bodyMd(c: tokenColor, w: FontWeight.w700)),
                 ]),
                 const SizedBox(height: 8),
@@ -150,7 +150,7 @@ class ProfilScreen extends ConsumerWidget {
 String _planLabel(UserPlan plan, AppStrings s) => switch (plan) {
   UserPlan.free => s.profilPlanFree,
   UserPlan.pro => s.profilPlanPro,
-  UserPlan.business => s.profilPlanBusiness,
+  UserPlan.platinum => s.profilPlanPlatinum,
 };
 
 Future<void> _editName(BuildContext context, WidgetRef ref, AppUser? user, AppStrings s) async {
