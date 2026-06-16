@@ -165,14 +165,19 @@ class NotulaNotifier extends StateNotifier<Notula?> {
     state = state!.copyWith(actionItems: state!.actionItems.where((a) => a.id != id).toList());
   }
 
-  void toggleActionStatus(int id) {
+  Future<void> toggleActionStatus(int id) async {
     if (state == null) return;
     final items = state!.actionItems.map((a) {
       if (a.id == id) a.status = a.status == ActionStatus.pending ? ActionStatus.done : ActionStatus.pending;
       return a;
     }).toList();
-    state = state!.copyWith(actionItems: items);
-    _syncActionReminders(items);
+    final updated = state!.copyWith(actionItems: items);
+    state = updated;
+    // Persist immediately so the status survives navigation and appears in exports.
+    if (_meetingId != '1') {
+      await SupabaseService.instance.saveNotula(_meetingId, updated);
+    }
+    await _syncActionReminders(items);
   }
 }
 

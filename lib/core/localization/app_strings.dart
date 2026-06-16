@@ -268,28 +268,17 @@ class AppStrings {
   String get recordingContinue => _t('Lanjutkan Rekam', 'Continue Recording');
   String get recordingStop => _t('Hentikan', 'Stop');
 
-  // ── Assign Speaker ─────────────────────────────────────────
-  String assignSpeakerSaveError(Object error) => _t('Gagal menyimpan peserta: $error', 'Failed to save participants: $error');
+  // ── Assign Speaker (dipertahankan untuk recording_screen) ───
   String assignSpeakerVoiceLabel(int index) => _t('Suara $index', 'Voice $index');
-  String get assignSpeakerTitle => _t('Assign Peserta', 'Assign Participants');
-  String get assignSpeakerLoadingDetection => _t('Memuat hasil deteksi suara...', 'Loading voice detection results...');
-  String get assignSpeakerNoVoicesDetected => _t('AI tidak mendeteksi suara pembicara pada rapat ini.', 'AI did not detect any speaker voices in this meeting.');
-  String assignSpeakerDetectedCount(int count) => _t('AI mendeteksi $count suara. Assignkan nama.', 'AI detected $count voices. Assign names to them.');
-  String get assignSpeakerInfoBanner => _t(
-      "Nama yang pernah diinput akan muncul sebagai saran. Boleh dikosongkan — Suara 1/2/3 tetap tersimpan.",
-      "Previously entered names will appear as suggestions. You can leave it blank — Voice 1/2/3 will still be saved.");
-  String assignSpeakerLoadError(Object error) => _t('Gagal memuat data transkrip: $error', 'Failed to load transcript data: $error');
-  String get assignSpeakerNothingToAssign => _t(
-      'Tidak ada suara yang perlu di-assign. Anda bisa langsung melanjutkan ke notula.',
-      'There are no voices to assign. You can continue directly to the minutes.');
-  String get assignSpeakerContinueToNotula => _t('Lanjutkan ke Notula', 'Continue to Minutes');
-  String get assignSpeakerSaveMeeting => _t('Simpan Rapat', 'Save Meeting');
-  String get assignSpeakerEmptyVoiceNote => _t(
-      "Suara yang kosong tersimpan sebagai 'Suara 1', 'Suara 2', dst.",
-      "Empty voices are saved as 'Voice 1', 'Voice 2', etc.");
-  String assignSpeakerTalkTime(String time) => _t('$time bicara', '$time talking');
-  String get assignSpeakerParticipantNameLabel => _t('NAMA PESERTA', 'PARTICIPANT NAME');
-  String get assignSpeakerNameHint => _t('Kosongkan jika tidak diketahui', 'Leave blank if unknown');
+
+  // ── Add Participants ────────────────────────────────────────
+  String get addParticipantsTitle => _t('Peserta Rapat', 'Meeting Participants');
+  String get addParticipantsSubtitle => _t('Tambahkan nama-nama peserta rapat ini', 'Add the names of the meeting participants');
+  String get addParticipantsHint => _t('Nama peserta...', 'Participant name...');
+  String get addParticipantsAdd => _t('+ Tambah peserta', '+ Add participant');
+  String get addParticipantsSave => _t('Simpan Peserta', 'Save Participants');
+  String get addParticipantsSkip => _t('Lewati', 'Skip');
+  String addParticipantsSaveError(Object e) => _t('Gagal menyimpan: $e', 'Failed to save: $e');
 
   // ── Processing ───────────────────────────────────────────
   String get processingTitle => _t('Memproses Rapat', 'Processing Meeting');
@@ -334,6 +323,7 @@ class AppStrings {
   String get notulaListenAudio => _t('Dengar Rekaman Audio', 'Listen to Audio Recording');
   String get notulaViewTranscript => _t('Lihat Transkripsi Lengkap', 'View Full Transcript');
   String get notulaEditAndShare => _t('EDIT DAN BAGIKAN NOTULA', 'EDIT AND SHARE MINUTES');
+  String get notulaEditButton => _t('Edit Notula', 'Edit Minutes');
 
   // ── Edit Notula ──────────────────────────────────────────
   String get editNotulaHeaderLabel => _t('NOTULA RAPAT', 'MEETING MINUTES');

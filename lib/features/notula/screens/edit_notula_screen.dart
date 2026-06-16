@@ -10,9 +10,6 @@ import '../../../core/providers/meeting_provider.dart';
 import '../../../core/utils/snackbar_util.dart';
 import '../../../core/widgets/app_button.dart';
 import '../../../core/widgets/app_bottom_nav.dart';
-import '../widgets/bagikan_notula_sheet.dart';
-import '../widgets/unduh_notula_sheet.dart';
-
 class EditNotulaScreen extends ConsumerStatefulWidget {
   const EditNotulaScreen({super.key, required this.meetingId});
   final String meetingId;
@@ -108,22 +105,6 @@ class _EditNotulaScreenState extends ConsumerState<EditNotulaScreen> {
               Text(meeting?.title ?? '', style: AppTextStyles.displayXs(w: FontWeight.w700),
                   maxLines:1, overflow: TextOverflow.ellipsis),
             ])),
-            const SizedBox(width: 8),
-            GestureDetector(onTap: meeting == null ? null
-                  : () => showUnduhNotulaSheet(context, meeting: meeting, notula: notula),
-              child: Container(width:36, height:36,
-                decoration: const BoxDecoration(color: AppColors.background, shape: BoxShape.circle),
-                child: const Icon(Icons.download_rounded, size:18, color: AppColors.textSecondary))),
-            const SizedBox(width: 8),
-            GestureDetector(onTap: meeting == null ? null
-                  : () => showBagikanNotulaSheet(context, meeting: meeting),
-              child: Container(padding: const EdgeInsets.symmetric(horizontal:14, vertical:8),
-                decoration: const BoxDecoration(color: AppColors.primary, borderRadius: AppRadius.full),
-                child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  const Icon(Icons.ios_share_rounded, size:14, color: Colors.white),
-                  const SizedBox(width:6),
-                  Text(s.editNotulaShare, style: AppTextStyles.bodySm(c: Colors.white, w: FontWeight.w600)),
-                ]))),
           ])),
         const Divider(height:1),
 

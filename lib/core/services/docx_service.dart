@@ -28,10 +28,13 @@ class DocxService {
       .replaceAll('<', '&lt;')
       .replaceAll('>', '&gt;');
 
-  String _paragraph(String text, {bool bold = false, int size = 22}) {
-    final rPr = bold ? '<w:rPr><w:b/><w:sz w:val="$size"/><w:szCs w:val="$size"/></w:rPr>'
-        : '<w:rPr><w:sz w:val="$size"/><w:szCs w:val="$size"/></w:rPr>';
-    return '<w:p><w:pPr><w:spacing w:after="120"/></w:pPr><w:r>$rPr'
+  String _paragraph(String text, {bool bold = false, int size = 22, bool strikethrough = false}) {
+    final rPr = StringBuffer('<w:rPr>');
+    if (bold) rPr.write('<w:b/>');
+    if (strikethrough) rPr.write('<w:strike/>');
+    rPr.write('<w:sz w:val="$size"/><w:szCs w:val="$size"/>');
+    rPr.write('</w:rPr>');
+    return '<w:p><w:pPr><w:spacing w:after="120"/></w:pPr><w:r>${rPr.toString()}'
         '<w:t xml:space="preserve">${_esc(text)}</w:t></w:r></w:p>';
   }
 
@@ -56,7 +59,12 @@ class DocxService {
     body.write(_paragraph('III. TINDAK LANJUT', bold: true, size: 26));
     for (final e in notula.actionItems.asMap().entries) {
       final a = e.value;
-      body.write(_paragraph('${e.key + 1}. ${a.text} — ${a.assignee} (${a.deadline})'));
+      final isDone = a.status == ActionStatus.done;
+      final statusTag = isDone ? '[SELESAI]' : '[PENDING]';
+      body.write(_paragraph(
+        '${e.key + 1}. $statusTag ${a.text} — ${a.assignee} (${a.deadline})',
+        strikethrough: isDone,
+      ));
     }
     body.write(_paragraph(''));
     body.write(_paragraph(''));

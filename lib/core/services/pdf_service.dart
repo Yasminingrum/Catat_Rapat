@@ -144,23 +144,48 @@ class PdfService {
     children: [
       pw.Text('III. TINDAK LANJUT', style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold)),
       pw.SizedBox(height: 8),
-      ...items.asMap().entries.map((e) => pw.Container(
-        margin: const pw.EdgeInsets.only(bottom: 8),
-        padding: const pw.EdgeInsets.all(10),
-        decoration: const pw.BoxDecoration(
-          color: PdfColors.grey100,
-          borderRadius: pw.BorderRadius.all(pw.Radius.circular(6)),
-        ),
-        child: pw.Row(children: [
-          pw.Expanded(child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-            pw.Text('${e.key + 1}. ${e.value.text}', style: const pw.TextStyle(fontSize: 12)),
-          ])),
-          pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.end, children: [
-            pw.Text(e.value.assignee, style: pw.TextStyle(fontSize: 11, color: PdfColor.fromHex('#4F46E5'))),
-            pw.Text(e.value.deadline, style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey600)),
+      ...items.asMap().entries.map((e) {
+        final isDone = e.value.status == ActionStatus.done;
+        return pw.Container(
+          margin: const pw.EdgeInsets.only(bottom: 8),
+          padding: const pw.EdgeInsets.all(10),
+          decoration: pw.BoxDecoration(
+            color: isDone ? const PdfColor(0.88, 0.98, 0.93) : PdfColors.grey100,
+            borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+          ),
+          child: pw.Row(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+            pw.Expanded(child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+              pw.Text('${e.key + 1}. ${e.value.text}',
+                  style: pw.TextStyle(
+                      fontSize: 12,
+                      decoration: isDone ? pw.TextDecoration.lineThrough : null,
+                      decorationColor: PdfColors.grey600)),
+            ])),
+            pw.SizedBox(width: 10),
+            pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.end, children: [
+              pw.Container(
+                padding: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                decoration: pw.BoxDecoration(
+                  color: isDone ? const PdfColor(0.06, 0.72, 0.51) : PdfColors.grey400,
+                  borderRadius: const pw.BorderRadius.all(pw.Radius.circular(3)),
+                ),
+                child: pw.Text(
+                  isDone ? 'Selesai' : 'Pending',
+                  style: pw.TextStyle(fontSize: 8, color: PdfColors.white, fontWeight: pw.FontWeight.bold),
+                ),
+              ),
+              if (e.value.assignee.isNotEmpty) ...[
+                pw.SizedBox(height: 4),
+                pw.Text(e.value.assignee,
+                    style: pw.TextStyle(fontSize: 11, color: PdfColor.fromHex('#4F46E5'))),
+              ],
+              if (e.value.deadline.isNotEmpty)
+                pw.Text(e.value.deadline,
+                    style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey600)),
+            ]),
           ]),
-        ]),
-      )),
+        );
+      }),
     ],
   );
 

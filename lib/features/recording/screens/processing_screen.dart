@@ -106,10 +106,8 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen>
       if (!mounted) return;
       setState(() => _progress = 75);
 
-      // ── Simpan transkrip, peserta hasil deteksi speaker & notula ──
+      // ── Simpan transkrip & notula ──
       await SupabaseService.instance.saveTranscript(meeting.id, transcript);
-      await SupabaseService.instance.saveParticipants(
-          meeting.id, _participantsFromTranscript(transcript));
 
       Notula notula;
       if (transcript.isNotEmpty && EnvConfig.openAiApiKey.isNotEmpty) {
@@ -159,10 +157,8 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen>
 
       await Future.delayed(const Duration(milliseconds: 600));
       if (!mounted) return;
-      context.pushReplacement('/assign-speaker', extra: {
-        'meetingId': meeting.id,
+      context.pushReplacement('/rapat/${meeting.id}/peserta', extra: {
         'title': widget.title,
-        'duration': durationLabel,
       });
     } catch (e) {
       if (!mounted) return;
@@ -188,21 +184,6 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen>
       }
     }
     return e.toString();
-  }
-
-  List<Participant> _participantsFromTranscript(List<TranscriptLine> transcript) {
-    final s = ref.read(appStringsProvider);
-    final ids = transcript.map((l) => l.speakerId).toSet().toList()..sort();
-    return ids.map((id) {
-      final idx = int.tryParse(id.replaceAll('S', '')) ?? 1;
-      return Participant(
-        id: id,
-        label: s.assignSpeakerVoiceLabel(idx),
-        name: '',
-        color: AppColors.speakerColor(idx - 1),
-        colorBg: AppColors.speakerBg(idx - 1),
-      );
-    }).toList();
   }
 
   String _formatDuration(int totalSeconds) {

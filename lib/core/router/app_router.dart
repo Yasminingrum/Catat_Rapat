@@ -12,7 +12,7 @@ import '../../features/home/screens/riwayat_screen.dart';
 import '../../features/meeting/screens/mulai_rapat_screen.dart';
 import '../../features/recording/screens/recording_screen.dart';
 import '../../features/recording/screens/processing_screen.dart';
-import '../../features/recording/screens/assign_speaker_screen.dart';
+import '../../features/meeting/screens/add_participants_screen.dart';
 import '../../features/notula/screens/notula_screen.dart';
 import '../../features/notula/screens/edit_notula_screen.dart';
 import '../../features/notula/screens/transcript_screen.dart';
@@ -94,16 +94,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           durationSeconds: e['durationSeconds'],
         );
       }),
-      GoRoute(path: '/assign-speaker', builder: (_, s) {
+      GoRoute(path: '/rapat/:id', builder: (_, s) => NotulaScreen(meetingId: s.pathParameters['id']!)),
+      GoRoute(path: '/rapat/:id/peserta', builder: (_, s) {
         final e = s.extra as Map<String, dynamic>? ?? {};
-        return AssignSpeakerScreen(
-          title: e['title'] ?? 'Rapat Baru',
-          duration: e['duration'],
-          meetingId: e['meetingId'],
+        return AddParticipantsScreen(
+          meetingId: s.pathParameters['id']!,
+          title: e['title'] as String? ?? '',
+          popOnSave: e['popOnSave'] as bool? ?? false,
         );
       }),
-
-      GoRoute(path: '/rapat/:id', builder: (_, s) => NotulaScreen(meetingId: s.pathParameters['id']!)),
       GoRoute(path: '/rapat/:id/edit-notula', builder: (_, s) => EditNotulaScreen(meetingId: s.pathParameters['id']!)),
       GoRoute(path: '/rapat/:id/transcript', builder: (_, s) => TranscriptScreen(meetingId: s.pathParameters['id']!)),
       GoRoute(path: '/rapat/:id/audio', builder: (_, s) => AudioPlayerScreen(meetingId: s.pathParameters['id']!)),

@@ -28,7 +28,8 @@ class TxtService {
       ..writeln('III. TINDAK LANJUT');
     for (final e in notula.actionItems.asMap().entries) {
       final a = e.value;
-      buffer.writeln('${e.key + 1}. ${a.text} -> ${a.assignee} (${a.deadline})');
+      final checkbox = a.status == ActionStatus.done ? '[x]' : '[ ]';
+      buffer.writeln('${e.key + 1}. $checkbox ${a.text} -> ${a.assignee} (${a.deadline})');
     }
     buffer
       ..writeln()
