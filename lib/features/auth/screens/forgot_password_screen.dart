@@ -6,6 +6,7 @@ import '../../../core/constants/app_spacing.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/localization/app_strings.dart';
 import '../../../core/providers/auth_provider.dart';
+import '../../../core/services/supabase_service.dart';
 import '../../../core/utils/snackbar_util.dart';
 import '../../../core/widgets/app_button.dart';
 import '../../../core/widgets/app_text_field.dart';
@@ -24,12 +25,21 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
   Future<void> _send(AppStrings s) async {
     if (!_formKey.currentState!.validate()) return;
     final email = _emailCtrl.text.trim();
+    final messenger = ScaffoldMessenger.of(context);
+
+    final emailExists = await SupabaseService.instance.checkEmailExists(email);
+    if (!mounted) return;
+    if (!emailExists) {
+      SnackbarUtil.showErrorOnMessenger(messenger, s.authEmailNotRegistered);
+      return;
+    }
+
     final ok = await ref.read(authProvider.notifier).sendPasswordResetOtp(email);
     if (!mounted) return;
     if (ok) {
       context.push('/reset-password', extra: {'email': email});
     } else {
-      SnackbarUtil.showError(context, ref.read(authProvider).error ?? s.authResetPasswordSendFailed);
+      SnackbarUtil.showErrorOnMessenger(messenger, ref.read(authProvider).error ?? s.authResetPasswordSendFailed);
     }
   }
 

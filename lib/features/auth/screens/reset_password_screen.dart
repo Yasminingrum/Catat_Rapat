@@ -107,7 +107,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
           AppTextField(label: s.authConfirmPasswordLabel, hint: s.authConfirmPasswordHint, controller: _confirmCtrl,
               isPassword: true, textInputAction: TextInputAction.done,
               onFieldSubmitted: (_) => _submit(s),
-              validator: s.validateConfirmPassword(_passCtrl.text)),
+              validator: s.validateConfirmPassword(() => _passCtrl.text)),
           const SizedBox(height: 32),
           AppButton(label: s.authResetPasswordButton, onPressed: isLoading ? null : () => _submit(s), isLoading: isLoading),
           const SizedBox(height: 24),

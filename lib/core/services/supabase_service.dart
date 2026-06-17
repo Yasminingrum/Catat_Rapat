@@ -36,7 +36,7 @@ class SupabaseService {
         redirectTo: 'io.supabase.catatrapat://login-callback/',
       );
 
-  /// Memverifikasi kode OTP 6-digit yang dikirim ke email saat registrasi.
+  /// Memverifikasi kode OTP 8-digit yang dikirim ke email saat registrasi.
   Future<AuthResponse> verifySignupOtp(String email, String token) =>
       _client.auth.verifyOTP(type: OtpType.signup, email: email, token: token);
 
@@ -44,11 +44,27 @@ class SupabaseService {
   Future<void> resendSignupOtp(String email) =>
       _client.auth.resend(type: OtpType.signup, email: email);
 
+  /// Mengecek apakah email sudah terdaftar di tabel profiles.
+  /// Mengembalikan false jika tidak ditemukan. Jika RLS memblokir query,
+  /// mengembalikan true (fail-open) agar alur reset tetap berjalan.
+  Future<bool> checkEmailExists(String email) async {
+    try {
+      final res = await _client
+          .from('profiles')
+          .select('id')
+          .eq('email', email)
+          .maybeSingle();
+      return res != null;
+    } catch (_) {
+      return true;
+    }
+  }
+
   /// Mengirim kode OTP reset password (recovery) ke email.
   Future<void> resetPasswordForEmail(String email) =>
       _client.auth.resetPasswordForEmail(email);
 
-  /// Memverifikasi kode OTP recovery 6-digit, membuat sesi sementara
+  /// Memverifikasi kode OTP recovery 8-digit, membuat sesi sementara
   /// yang dipakai untuk mengganti password.
   Future<AuthResponse> verifyRecoveryOtp(String email, String token) =>
       _client.auth.verifyOTP(type: OtpType.recovery, email: email, token: token);

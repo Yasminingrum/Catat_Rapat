@@ -80,7 +80,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           AppTextField(label: s.authConfirmPasswordLabel, hint: s.authConfirmPasswordHint, controller: _confirmCtrl,
               isPassword: true, isRequired: true, textInputAction: TextInputAction.done,
               onFieldSubmitted: (_) => _register(s),
-              validator: s.validateConfirmPassword(_passCtrl.text)),
+              validator: s.validateConfirmPassword(() => _passCtrl.text)),
           const SizedBox(height: 32),
           AppButton(label: s.authRegisterButton, onPressed: isLoading ? null : () => _register(s), isLoading: isLoading),
           const SizedBox(height: 24),

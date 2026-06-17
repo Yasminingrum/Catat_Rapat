@@ -4,16 +4,26 @@ import '../constants/app_text_styles.dart';
 
 abstract final class SnackbarUtil {
   static void showSuccess(BuildContext context, String message) =>
-      _show(context, message, AppColors.success);
+      _showOnMessenger(ScaffoldMessenger.of(context), message, AppColors.success);
 
   static void showError(BuildContext context, String message) =>
-      _show(context, message, AppColors.error);
+      _showOnMessenger(ScaffoldMessenger.of(context), message, AppColors.error);
 
   static void showInfo(BuildContext context, String message) =>
-      _show(context, message, AppColors.primary);
+      _showOnMessenger(ScaffoldMessenger.of(context), message, AppColors.primary);
 
-  static void _show(BuildContext context, String message, Color color) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+  // Pakai setelah `await` — capture messenger sebelum async, lalu panggil ini.
+  static void showSuccessOnMessenger(ScaffoldMessengerState m, String message) =>
+      _showOnMessenger(m, message, AppColors.success);
+
+  static void showErrorOnMessenger(ScaffoldMessengerState m, String message) =>
+      _showOnMessenger(m, message, AppColors.error);
+
+  static void showInfoOnMessenger(ScaffoldMessengerState m, String message) =>
+      _showOnMessenger(m, message, AppColors.primary);
+
+  static void _showOnMessenger(ScaffoldMessengerState messenger, String message, Color color) {
+    messenger.showSnackBar(SnackBar(
       content: Text(message, style: AppTextStyles.bodyMd(c: Colors.white)),
       backgroundColor: color,
       behavior: SnackBarBehavior.floating,
