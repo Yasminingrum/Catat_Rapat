@@ -427,6 +427,8 @@ class AppStrings {
   String get upgradeTestimonialRole => _t('Manajer Proyek', 'Project Manager');
   String upgradeCtaStart(String priceLabel) => _t('Mulai $priceLabel', 'Start $priceLabel');
   String get upgradeCtaFootnote => _t('Batalkan kapan saja · Tanpa biaya tersembunyi', 'Cancel anytime · No hidden fees');
+  String get upgradeCurrentPlanBadge => _t('Paket Saat Ini', 'Current Plan');
+  String get upgradeAlreadyActive => _t('Paket Aktif', 'Plan Active');
   String get upgradePaymentUnavailable => _t('Pembayaran belum tersedia di versi ini.', 'Payment is not available in this version yet.');
   String get upgradePaymentFetchError => _t('Gagal menghubungi server pembayaran. Coba lagi.', 'Failed to connect to payment server. Please try again.');
   String get upgradePaymentSuccess => _t('Upgrade berhasil! Selamat menikmati fitur premium.', 'Upgrade successful! Enjoy your premium features.');

@@ -6,6 +6,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_spacing.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/localization/app_strings.dart';
+import '../../../core/models/user_model.dart';
 import '../../../core/providers/auth_provider.dart';
 import '../../../core/utils/snackbar_util.dart';
 import '../../../core/widgets/app_button.dart';
@@ -32,6 +33,13 @@ class _MulaiRapatScreenState extends ConsumerState<MulaiRapatScreen> {
   RecordMode _mode = RecordMode.live;
   String? _selectedFileName;
   String? _selectedFilePath;
+
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() =>
+        ref.read(authProvider.notifier).refreshProfile());
+  }
 
   bool get _canStart {
     if (_titleController.text.trim().isEmpty) return false;
@@ -155,7 +163,11 @@ class _MulaiRapatScreenState extends ConsumerState<MulaiRapatScreen> {
                       const SizedBox(height: AppSpacing.xl),
 
                       // Token card
-                      _TokenInfoCard(s: s, tokenLeft: ref.watch(currentUserProvider)?.tokenLeft ?? 0),
+                      _TokenInfoCard(
+                        s: s,
+                        tokenLeft: ref.watch(currentUserProvider)?.tokenLeft ?? 0,
+                        plan: ref.watch(currentUserProvider)?.plan ?? UserPlan.free,
+                      ),
                       const SizedBox(height: AppSpacing.xl),
 
                       // Mode selector
@@ -217,9 +229,16 @@ class _MulaiRapatScreenState extends ConsumerState<MulaiRapatScreen> {
 // ─── Token Info Card ──────────────────────────────────────────────────────────
 
 class _TokenInfoCard extends StatelessWidget {
-  const _TokenInfoCard({required this.s, required this.tokenLeft});
+  const _TokenInfoCard({required this.s, required this.tokenLeft, required this.plan});
   final AppStrings s;
   final int tokenLeft;
+  final UserPlan plan;
+
+  String _planLabel() => switch (plan) {
+    UserPlan.free     => s.profilPlanFree,
+    UserPlan.pro      => s.profilPlanPro,
+    UserPlan.platinum => s.profilPlanPlatinum,
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -252,7 +271,7 @@ class _TokenInfoCard extends StatelessWidget {
               color: AppColors.surface,
               borderRadius: AppRadius.full,
             ),
-            child: Text(s.mulaiRapatFreeTier,
+            child: Text(_planLabel(),
                 style: AppTextStyles.caption(
                     c: AppColors.textSecondary, w: FontWeight.w600)),
           ),

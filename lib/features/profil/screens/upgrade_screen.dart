@@ -6,6 +6,7 @@ import '../../../core/constants/app_spacing.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/localization/app_strings.dart';
 import '../../../core/models/user_model.dart';
+import '../../../core/providers/auth_provider.dart';
 import '../../../core/services/supabase_service.dart';
 import 'payment_webview_screen.dart';
 
@@ -103,10 +104,17 @@ class _UpgradeScreenState extends ConsumerState<UpgradeScreen> {
     ));
   }
 
+  _Plan _userPlanToLocal(UserPlan? plan) => switch (plan) {
+    UserPlan.pro      => _Plan.pro,
+    UserPlan.platinum => _Plan.platinum,
+    _                 => _Plan.free,
+  };
+
   @override
   Widget build(BuildContext context) {
     final s = ref.watch(appStringsProvider);
     final features = _premiumFeatures(s);
+    final currentPlan = _userPlanToLocal(ref.watch(currentUserProvider)?.plan);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -167,6 +175,8 @@ class _UpgradeScreenState extends ConsumerState<UpgradeScreen> {
                 price: s.upgradePriceFree,
                 period: '',
                 selected: _selected == _Plan.free,
+                isCurrentPlan: currentPlan == _Plan.free,
+                currentPlanLabel: s.upgradeCurrentPlanBadge,
                 onTap: () => setState(() => _selected = _Plan.free),
               ),
               const SizedBox(height: 10),
@@ -181,6 +191,8 @@ class _UpgradeScreenState extends ConsumerState<UpgradeScreen> {
                 saveBadge: _cycle == _BillingCycle.yearly ? s.upgradeSaveBadge : null,
                 isPrimary: true,
                 selected: _selected == _Plan.pro,
+                isCurrentPlan: currentPlan == _Plan.pro,
+                currentPlanLabel: s.upgradeCurrentPlanBadge,
                 onTap: () => setState(() => _selected = _Plan.pro),
               ),
               const SizedBox(height: 10),
@@ -195,6 +207,8 @@ class _UpgradeScreenState extends ConsumerState<UpgradeScreen> {
                 saveBadge: _cycle == _BillingCycle.yearly ? s.upgradeSaveBadge : null,
                 isPlatinum: true,
                 selected: _selected == _Plan.platinum,
+                isCurrentPlan: currentPlan == _Plan.platinum,
+                currentPlanLabel: s.upgradeCurrentPlanBadge,
                 onTap: () => setState(() => _selected = _Plan.platinum),
               ),
               const SizedBox(height: 24),
@@ -214,36 +228,8 @@ class _UpgradeScreenState extends ConsumerState<UpgradeScreen> {
               ),
               const SizedBox(height: 24),
 
-              // Testimoni
-              Container(
-                padding: AppSpacing.cardPadding,
-                decoration: const BoxDecoration(
-                  color: AppColors.primaryLight, borderRadius: AppRadius.lg),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Row(children: List.generate(5,
-                    (_) => const Icon(Icons.star_rounded, color: AppColors.warning, size: 18))),
-                  const SizedBox(height: 8),
-                  Text(s.upgradeTestimonial,
-                    style: AppTextStyles.bodyMd(c: AppColors.textPrimary)),
-                  const SizedBox(height: 12),
-                  Row(children: [
-                    Container(width: 32, height: 32,
-                      decoration: const BoxDecoration(
-                        color: AppColors.primary, shape: BoxShape.circle),
-                      child: Center(child: Text('RS',
-                        style: AppTextStyles.caption(c: Colors.white, w: FontWeight.w700)))),
-                    const SizedBox(width: 8),
-                    Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text('Rizky S.', style: AppTextStyles.bodySm(w: FontWeight.w700)),
-                      Text(s.upgradeTestimonialRole, style: AppTextStyles.caption()),
-                    ]),
-                  ]),
-                ]),
-              ),
-              const SizedBox(height: 24),
-
               // CTA
-              if (_selected != _Plan.free) ...[
+              if (_selected != _Plan.free && _selected != currentPlan) ...[
                 GestureDetector(
                   onTap: _isLoading ? null : () => _startPayment(context, s),
                   child: Container(
@@ -268,6 +254,16 @@ class _UpgradeScreenState extends ConsumerState<UpgradeScreen> {
                 ),
                 const SizedBox(height: 8),
                 Center(child: Text(s.upgradeCtaFootnote, style: AppTextStyles.caption())),
+              ] else if (_selected != _Plan.free && _selected == currentPlan) ...[
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  decoration: const BoxDecoration(
+                    color: AppColors.divider,
+                    borderRadius: AppRadius.md),
+                  child: Center(child: Text(s.upgradeAlreadyActive,
+                    style: AppTextStyles.bodyLg(c: AppColors.textSecondary, w: FontWeight.w700))),
+                ),
               ],
             ],
           )),
@@ -358,11 +354,14 @@ class _PlanCard extends StatelessWidget {
     this.footnote, this.saveBadge,
     this.isPrimary = false, this.isPlatinum = false,
     required this.selected, required this.onTap,
+    this.isCurrentPlan = false, this.currentPlanLabel,
   });
   final String name, quota, price, period;
   final String? footnote, saveBadge;
   final bool isPrimary, isPlatinum, selected;
   final VoidCallback onTap;
+  final bool isCurrentPlan;
+  final String? currentPlanLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -392,6 +391,19 @@ class _PlanCard extends StatelessWidget {
                   child: Icon(Icons.diamond_rounded, color: accentColor, size: 15)),
               Text(name,
                 style: AppTextStyles.bodyMd(w: FontWeight.w700, c: accentColor)),
+              if (isCurrentPlan && currentPlanLabel != null) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: accentColor.withValues(alpha: 0.12),
+                    borderRadius: AppRadius.full,
+                    border: Border.all(color: accentColor.withValues(alpha: 0.4)),
+                  ),
+                  child: Text(currentPlanLabel!,
+                    style: AppTextStyles.caption(c: accentColor, w: FontWeight.w700)),
+                ),
+              ],
             ]),
             const SizedBox(height: 3),
             Text(quota, style: AppTextStyles.caption(c: AppColors.textSecondary)),
