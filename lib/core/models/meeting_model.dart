@@ -16,6 +16,9 @@ class Meeting {
   final bool hasTranscript, hasNotula, hasAudio, isStarred;
   final String? agenda, audioPath;
 
+  /// True jika audio sudah terunggah tetapi transkripsi belum berhasil dihasilkan.
+  bool get isFailed => hasAudio && !hasTranscript;
+
   Meeting copyWith({
     String? title, String? agenda, MeetingStatus? status,
     bool? hasTranscript, bool? hasNotula, bool? hasAudio, bool? isStarred, String? audioPath,

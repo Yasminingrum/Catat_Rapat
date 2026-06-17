@@ -127,7 +127,12 @@ class _RiwayatScreenState extends ConsumerState<RiwayatScreen> {
                 itemBuilder: (_, i) => _RiwayatMeetingCard(meeting: filtered[i], s: s,
                     onTap: () => context.push('/rapat/${filtered[i].id}'),
                     onToggleStar: () => ref.read(meetingListProvider.notifier).toggleStar(filtered[i].id),
-                    onDelete: () => _confirmDelete(filtered[i]))));
+                    onDelete: () => _confirmDelete(filtered[i]),
+                    onReprocess: () => context.push('/processing', extra: {
+                      'title': filtered[i].title,
+                      'existingMeetingId': filtered[i].id,
+                      'existingAudioPath': filtered[i].audioPath,
+                    }))));
           },
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e,_) => Center(child: Text('${s.commonError}: $e')),
@@ -156,11 +161,11 @@ class _FilterChip extends StatelessWidget {
 class _RiwayatMeetingCard extends StatelessWidget {
   const _RiwayatMeetingCard({
     required this.meeting, required this.s, required this.onTap,
-    required this.onToggleStar, required this.onDelete,
+    required this.onToggleStar, required this.onDelete, required this.onReprocess,
   });
   final Meeting meeting;
   final AppStrings s;
-  final VoidCallback onTap, onToggleStar, onDelete;
+  final VoidCallback onTap, onToggleStar, onDelete, onReprocess;
 
   @override
   Widget build(BuildContext context) => GestureDetector(
@@ -187,8 +192,22 @@ class _RiwayatMeetingCard extends StatelessWidget {
               padding: EdgeInsets.zero,
               icon: const Icon(Icons.more_horiz_rounded, size: 18, color: AppColors.textTertiary),
               shape: const RoundedRectangleBorder(borderRadius: AppRadius.md),
-              onSelected: (v) { if (v == 'star') { onToggleStar(); } else if (v == 'delete') { onDelete(); } },
+              onSelected: (v) {
+                if (v == 'star') {
+                  onToggleStar();
+                } else if (v == 'delete') {
+                  onDelete();
+                } else if (v == 'reprocess') {
+                  onReprocess();
+                }
+              },
               itemBuilder: (_) => [
+                if (meeting.isFailed)
+                  PopupMenuItem(value: 'reprocess', child: Row(children: [
+                    const Icon(Icons.refresh_rounded, size: 18, color: AppColors.primary),
+                    const SizedBox(width: 8),
+                    Text(s.riwayatReprocessMenuItem, style: AppTextStyles.bodyMd(c: AppColors.primary, w: FontWeight.w600)),
+                  ])),
                 PopupMenuItem(value: 'star', child: Row(children: [
                   const Icon(Icons.star_rounded, size: 18, color: AppColors.warning),
                   const SizedBox(width: 8),
@@ -216,7 +235,7 @@ class _RiwayatMeetingCard extends StatelessWidget {
           Row(children: [
             Text(meeting.date, style: AppTextStyles.caption(c: AppColors.textTertiary)),
             const SizedBox(width: 8),
-            _StatusBadge(status: meeting.status, s: s),
+            _StatusBadge(meeting: meeting, s: s),
           ]),
         ])),
       ]),
@@ -225,21 +244,32 @@ class _RiwayatMeetingCard extends StatelessWidget {
 }
 
 class _StatusBadge extends StatelessWidget {
-  const _StatusBadge({required this.status, required this.s});
-  final MeetingStatus status;
+  const _StatusBadge({required this.meeting, required this.s});
+  final Meeting meeting;
   final AppStrings s;
 
   @override
   Widget build(BuildContext context) {
-    final isDraft = status == MeetingStatus.draft;
+    final Color bg;
+    final Color fg;
+    final String label;
+    if (meeting.isFailed) {
+      bg = AppColors.errorLight;
+      fg = AppColors.error;
+      label = s.riwayatStatusFailed;
+    } else if (meeting.status == MeetingStatus.draft) {
+      bg = AppColors.warningLight;
+      fg = AppColors.warning;
+      label = s.riwayatStatusInProgress;
+    } else {
+      bg = AppColors.successLight;
+      fg = AppColors.success;
+      label = s.riwayatStatusDone;
+    }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-          color: isDraft ? AppColors.warningLight : AppColors.successLight,
-          borderRadius: AppRadius.full),
-      child: Text(isDraft ? s.riwayatStatusInProgress : s.riwayatStatusDone,
-          style: AppTextStyles.caption(
-              c: isDraft ? AppColors.warning : AppColors.success, w: FontWeight.w600)),
+      decoration: BoxDecoration(color: bg, borderRadius: AppRadius.full),
+      child: Text(label, style: AppTextStyles.caption(c: fg, w: FontWeight.w600)),
     );
   }
 }

@@ -104,6 +104,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           fileName: e['fileName'],
           filePath: e['filePath'],
           durationSeconds: e['durationSeconds'],
+          existingMeetingId: e['existingMeetingId'],
+          existingAudioPath: e['existingAudioPath'],
         );
       }),
       GoRoute(path: '/rapat/:id', builder: (_, s) => NotulaScreen(meetingId: s.pathParameters['id']!)),

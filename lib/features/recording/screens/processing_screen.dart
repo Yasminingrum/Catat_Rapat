@@ -10,6 +10,7 @@ import '../../../core/constants/app_text_styles.dart';
 import '../../../core/localization/app_strings.dart';
 import '../../../core/models/meeting_model.dart';
 import '../../../core/providers/auth_provider.dart';
+import '../../../core/providers/meeting_provider.dart';
 import '../../../core/providers/settings_provider.dart';
 import '../../../core/services/ai_service.dart';
 import '../../../core/services/notification_service.dart';
@@ -24,6 +25,8 @@ class ProcessingScreen extends ConsumerStatefulWidget {
     this.fileName,
     this.filePath,
     this.durationSeconds,
+    this.existingMeetingId,
+    this.existingAudioPath,
   });
 
   final String title;
@@ -31,6 +34,10 @@ class ProcessingScreen extends ConsumerStatefulWidget {
   final String? fileName;
   final String? filePath;
   final int? durationSeconds;
+  /// Diisi saat memproses ulang rapat yang sudah ada di DB.
+  final String? existingMeetingId;
+  /// Path audio di Supabase Storage yang sudah terunggah sebelumnya.
+  final String? existingAudioPath;
 
   @override
   ConsumerState<ProcessingScreen> createState() => _ProcessingScreenState();
@@ -42,6 +49,10 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen>
   String? _error;
   late AnimationController _loaderController;
 
+  // Disimpan agar retry tidak membuat rapat duplikat.
+  String? _createdMeetingId;
+  String? _uploadedAudioPath;
+
   List<_Stage> _stages(AppStrings s) => [
     _Stage(s.processingStageUpload, 20),
     _Stage(s.processingStageAnalyze, 40),
@@ -52,6 +63,8 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen>
   @override
   void initState() {
     super.initState();
+    _createdMeetingId = widget.existingMeetingId;
+    _uploadedAudioPath = widget.existingAudioPath;
 
     _loaderController = AnimationController(
       vsync: this,
@@ -74,16 +87,33 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen>
     });
 
     try {
-      // ── Tahap 1: Upload — simpan rapat & unggah audio ──────
-      final meeting = await SupabaseService.instance.createMeeting(
-        title: widget.title,
-        agenda: widget.agenda,
-      );
-
-      String? audioPath;
-      if (widget.filePath != null) {
-        audioPath = await SupabaseService.instance.uploadAudio(meeting.id, widget.filePath!);
+      // ── Tahap 1: Buat rapat & unggah audio ────────────────
+      // Dilewati pada retry agar tidak membuat rapat duplikat.
+      final Meeting meeting;
+      if (_createdMeetingId == null) {
+        meeting = await SupabaseService.instance.createMeeting(
+          title: widget.title,
+          agenda: widget.agenda,
+        );
+        _createdMeetingId = meeting.id;
+      } else {
+        meeting = await SupabaseService.instance.getMeeting(_createdMeetingId!);
       }
+
+      if (_uploadedAudioPath == null && widget.filePath != null) {
+        _uploadedAudioPath = await SupabaseService.instance
+            .uploadAudio(meeting.id, widget.filePath!);
+        // Simpan metadata audio segera agar retry bisa menemukan file di Storage
+        // meski transkripsi gagal nanti.
+        if (_uploadedAudioPath != null) {
+          await SupabaseService.instance.updateMeeting(meeting.id, {
+            'has_audio': true,
+            'audio_path': _uploadedAudioPath,
+          });
+        }
+      }
+      final audioPath = _uploadedAudioPath;
+
       if (!mounted) return;
       setState(() => _progress = 20);
 
@@ -91,34 +121,32 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen>
       var transcript = <TranscriptLine>[];
       var durationSeconds = widget.durationSeconds;
 
-      if (audioPath != null && widget.filePath != null) {
-        final fileSize = await File(widget.filePath!).length();
-        if (fileSize <= whisperMaxFileSizeBytes) {
+      if (audioPath != null) {
+        // Cek ukuran hanya jika file lokal tersedia; jika tidak (proses ulang),
+        // langsung kirim ke Edge Function dan biarkan sisi server yang memvalidasi.
+        final fileTooLarge = widget.filePath != null &&
+            await File(widget.filePath!).length() > whisperMaxFileSizeBytes;
+        if (!fileTooLarge) {
           final result = await SupabaseService.instance.invokeTranscribe(meeting.id);
-          if (result != null) {
-            transcript = result.lines;
-            durationSeconds ??= result.durationSeconds.round();
-          }
+          transcript = result.lines;
+          durationSeconds = result.durationSeconds.round();
         }
       }
       if (!mounted) return;
       setState(() => _progress = 75);
 
-      // ── Simpan transkrip & notula ──
+      // ── Simpan transkrip & notula ──────────────────────────
       await SupabaseService.instance.saveTranscript(meeting.id, transcript);
 
       final settings = ref.read(settingsProvider);
 
-      Notula notula;
-      if (transcript.isNotEmpty) {
-        notula = await SupabaseService.instance.invokeGenerateNotula(
+      final notula = transcript.isNotEmpty
+          ? await SupabaseService.instance.invokeGenerateNotula(
               transcript,
               settings.notulaLanguage.name,
-            ) ??
-            Notula(ringkasan: '', keputusan: [], actionItems: []);
-      } else {
-        notula = Notula(ringkasan: '', keputusan: [], actionItems: []);
-      }
+            )
+          : Notula(ringkasan: '', keputusan: [], actionItems: []);
+
       await SupabaseService.instance.saveNotula(meeting.id, notula);
       if (settings.notifSummaryReady) {
         await NotificationService.instance.showSummaryReadyNotification(
@@ -151,14 +179,24 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen>
         await ref.read(authProvider.notifier).refreshProfile();
       }
 
+      // Refresh providers agar layar yang sudah terbuka memuat data terbaru.
+      ref.invalidate(notulaProvider(meeting.id));
+      await ref.read(meetingListProvider.notifier).refresh();
+
       if (!mounted) return;
       setState(() => _progress = 100);
 
       await Future.delayed(const Duration(milliseconds: 600));
       if (!mounted) return;
-      context.pushReplacement('/rapat/${meeting.id}/peserta', extra: {
-        'title': widget.title,
-      });
+
+      if (widget.existingMeetingId != null) {
+        // Proses ulang: kembali ke NotulaScreen yang sudah ada di stack.
+        context.pop();
+      } else {
+        context.pushReplacement('/rapat/${meeting.id}/peserta', extra: {
+          'title': widget.title,
+        });
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() => _error = _friendlyError(e));

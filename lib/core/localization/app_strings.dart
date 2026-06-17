@@ -62,6 +62,8 @@ class AppStrings {
   String riwayatParticipants(int count) => _t('$count peserta', '$count participants');
   String get riwayatStatusInProgress => _t('Proses', 'In Progress');
   String get riwayatStatusDone => _t('Selesai', 'Done');
+  String get riwayatStatusFailed => _t('Gagal', 'Failed');
+  String get riwayatReprocessMenuItem => _t('Proses Ulang', 'Reprocess');
 
   // ── Profil & Pengaturan ──────────────────────────────────
   String get profilTitle => _t('Profil & Pengaturan', 'Profile & Settings');
@@ -320,12 +322,17 @@ class AppStrings {
   String get notulaDecisionsTitle => _t('Keputusan', 'Decisions');
   String get notulaDecisionsEmpty => _t('Belum ada keputusan tercatat.', 'No decisions recorded yet.');
   String get notulaActionItemTitle => _t('Action Item', 'Action Items');
-  String get notulaActionItemSubtitle => _t('Centang untuk memasukkan ke dalam notula', 'Check to include in the minutes');
+  String get notulaActionItemSubtitle => _t('Centang jika action item sudah selesai', 'Check when an action item is completed');
   String get notulaActionItemEmpty => _t('Belum ada tindak lanjut tercatat.', 'No follow-ups recorded yet.');
   String get notulaListenAudio => _t('Dengar Rekaman Audio', 'Listen to Audio Recording');
   String get notulaViewTranscript => _t('Lihat Transkripsi Lengkap', 'View Full Transcript');
   String get notulaEditAndShare => _t('EDIT DAN BAGIKAN NOTULA', 'EDIT AND SHARE MINUTES');
   String get notulaEditButton => _t('Edit Notula', 'Edit Minutes');
+  String get notulaReprocessButton => _t('Proses Ulang Transkripsi', 'Reprocess Transcription');
+  String get notulaFailedBanner => _t(
+    'Transkripsi gagal diproses. Audio tersimpan — tekan tombol di bawah untuk mencoba lagi.',
+    'Transcription failed. Audio is saved — tap the button below to try again.',
+  );
 
   // ── Edit Notula ──────────────────────────────────────────
   String get editNotulaHeaderLabel => _t('NOTULA RAPAT', 'MEETING MINUTES');

@@ -242,51 +242,51 @@ class SupabaseService {
   // ─── AI Edge Functions ─────────────────────────────────────
 
   /// Memanggil Edge Function `transcribe`: mengunduh audio dari Storage
-  /// lalu mengirimnya ke Whisper. Mengembalikan hasil transkrip dan durasi.
-  Future<({List<TranscriptLine> lines, double durationSeconds})?> invokeTranscribe(
+  /// lalu mengirimnya ke Whisper. Melempar exception jika gagal.
+  Future<({List<TranscriptLine> lines, double durationSeconds})> invokeTranscribe(
     String meetingId,
   ) async {
-    try {
-      final res = await _client.functions.invoke(
-        'transcribe',
-        body: {'meeting_id': meetingId},
+    final res = await _client.functions.invoke(
+      'transcribe',
+      body: {'meeting_id': meetingId},
+    );
+    if (res.status != 200) {
+      throw Exception('Transkripsi gagal (status ${res.status}). Periksa koneksi dan coba lagi.');
+    }
+    final data = res.data as Map<String, dynamic>;
+    final rawLines = (data['lines'] as List<dynamic>? ?? []);
+    final lines = rawLines.map((e) {
+      final m = e as Map<String, dynamic>;
+      return TranscriptLine(
+        timestamp: m['timestamp'] as String,
+        speakerId: m['speaker_id'] as String,
+        speaker: m['speaker'] as String,
+        text: m['text'] as String,
       );
-      if (res.status != 200) return null;
-      final data = res.data as Map<String, dynamic>;
-      final rawLines = (data['lines'] as List<dynamic>? ?? []);
-      final lines = rawLines.map((e) {
-        final m = e as Map<String, dynamic>;
-        return TranscriptLine(
-          timestamp: m['timestamp'] as String,
-          speakerId: m['speaker_id'] as String,
-          speaker: m['speaker'] as String,
-          text: m['text'] as String,
-        );
-      }).toList();
-      final duration = (data['duration_seconds'] as num?)?.toDouble() ?? 0;
-      return (lines: lines, durationSeconds: duration);
-    } catch (_) { return null; }
+    }).toList();
+    final duration = (data['duration_seconds'] as num?)?.toDouble() ?? 0;
+    return (lines: lines, durationSeconds: duration);
   }
 
   /// Memanggil Edge Function `generate-notula`: mengirim transkrip ke GPT
-  /// dan mengembalikan objek [Notula].
-  Future<Notula?> invokeGenerateNotula(
+  /// dan mengembalikan objek [Notula]. Melempar exception jika gagal.
+  Future<Notula> invokeGenerateNotula(
     List<TranscriptLine> transcript,
     String language, // 'indonesia' | 'english'
   ) async {
-    try {
-      final res = await _client.functions.invoke(
-        'generate-notula',
-        body: {
-          'transcript': transcript
-              .map((l) => {'timestamp': l.timestamp, 'speaker': l.speaker, 'text': l.text})
-              .toList(),
-          'language': language,
-        },
-      );
-      if (res.status != 200) return null;
-      return Notula.fromJson(res.data as Map<String, dynamic>);
-    } catch (_) { return null; }
+    final res = await _client.functions.invoke(
+      'generate-notula',
+      body: {
+        'transcript': transcript
+            .map((l) => {'timestamp': l.timestamp, 'speaker': l.speaker, 'text': l.text})
+            .toList(),
+        'language': language,
+      },
+    );
+    if (res.status != 200) {
+      throw Exception('Pembuatan notula gagal (status ${res.status}). Periksa koneksi dan coba lagi.');
+    }
+    return Notula.fromJson(res.data as Map<String, dynamic>);
   }
 
   /// Menghapus semua data pengguna lalu sign out.

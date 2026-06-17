@@ -86,6 +86,23 @@ class NotulaScreen extends ConsumerWidget {
           : SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(24,24,24,24),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                if (meeting?.isFailed == true) ...[
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      color: AppColors.errorLight,
+                      borderRadius: AppRadius.md,
+                      border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+                    ),
+                    child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      const Icon(Icons.warning_amber_rounded, size: 18, color: AppColors.error),
+                      const SizedBox(width: 10),
+                      Expanded(child: Text(s.notulaFailedBanner,
+                          style: AppTextStyles.bodySm(c: AppColors.error))),
+                    ]),
+                  ),
+                ],
                 // Ringkasan
                 _Card(title: s.notulaSummaryTitle,
                   child: Builder(builder: (_) {
@@ -178,18 +195,28 @@ class NotulaScreen extends ConsumerWidget {
                   ])),
               ]))),
 
-        // Footer — edit button
+        // Footer — edit or reprocess button
         Container(
           padding: EdgeInsets.fromLTRB(24, 16, 24, MediaQuery.of(context).padding.bottom + 16),
           decoration: const BoxDecoration(
             color: AppColors.surface,
             border: Border(top: BorderSide(color: AppColors.borderLight)),
           ),
-          child: AppButton(
-            label: s.notulaEditButton,
-            icon: const Icon(Icons.edit_rounded, color: Colors.white, size: 18),
-            onPressed: () => context.push('/rapat/$meetingId/edit-notula'),
-          ),
+          child: meeting?.isFailed == true
+              ? AppButton(
+                  label: s.notulaReprocessButton,
+                  icon: const Icon(Icons.refresh_rounded, color: Colors.white, size: 18),
+                  onPressed: () => context.push('/processing', extra: {
+                    'title': meeting!.title,
+                    'existingMeetingId': meeting.id,
+                    'existingAudioPath': meeting.audioPath,
+                  }),
+                )
+              : AppButton(
+                  label: s.notulaEditButton,
+                  icon: const Icon(Icons.edit_rounded, color: Colors.white, size: 18),
+                  onPressed: () => context.push('/rapat/$meetingId/edit-notula'),
+                ),
         ),
       ])),
       bottomNavigationBar: const AppBottomNav(currentIndex: 0),
