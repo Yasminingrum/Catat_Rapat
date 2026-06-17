@@ -9,6 +9,14 @@ class TxtService {
   TxtService._();
   static final TxtService instance = TxtService._();
 
+  String _substituteNames(String text, List<Participant> participants) {
+    var result = text;
+    for (final p in participants) {
+      if (p.name.isNotEmpty) result = result.replaceAll(p.label, p.name);
+    }
+    return result;
+  }
+
   String _buildContent({required Meeting meeting, required Notula notula}) {
     final buffer = StringBuffer()
       ..writeln('NOTULA RAPAT')
@@ -17,7 +25,7 @@ class TxtService {
       ..writeln('Peserta: ${meeting.participants.map((p) => p.displayName).join(', ')}')
       ..writeln()
       ..writeln('I. PEMBAHASAN')
-      ..writeln(notula.ringkasan)
+      ..writeln(_substituteNames(notula.ringkasan, meeting.participants))
       ..writeln()
       ..writeln('II. KEPUTUSAN RAPAT');
     for (final e in notula.keputusan.asMap().entries) {

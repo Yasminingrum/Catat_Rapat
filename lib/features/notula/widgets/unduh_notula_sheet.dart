@@ -5,6 +5,7 @@ import '../../../core/constants/app_spacing.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/localization/app_strings.dart';
 import '../../../core/models/meeting_model.dart';
+import '../../../core/providers/meeting_provider.dart';
 import '../../../core/providers/settings_provider.dart';
 import '../../../core/services/docx_service.dart';
 import '../../../core/services/pdf_service.dart';
@@ -13,20 +14,19 @@ import '../../../core/utils/snackbar_util.dart';
 
 enum _DocFormat { pdf, docx, txt }
 
-Future<void> showUnduhNotulaSheet(BuildContext context, {required Meeting meeting, required Notula notula}) {
+Future<void> showUnduhNotulaSheet(BuildContext context, {required Meeting meeting}) {
   return showModalBottomSheet(
     context: context,
     backgroundColor: AppColors.surface,
     shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
     isScrollControlled: true,
-    builder: (ctx) => _UnduhNotulaSheet(meeting: meeting, notula: notula),
+    builder: (ctx) => _UnduhNotulaSheet(meeting: meeting),
   );
 }
 
 class _UnduhNotulaSheet extends ConsumerStatefulWidget {
-  const _UnduhNotulaSheet({required this.meeting, required this.notula});
+  const _UnduhNotulaSheet({required this.meeting});
   final Meeting meeting;
-  final Notula notula;
 
   @override
   ConsumerState<_UnduhNotulaSheet> createState() => _UnduhNotulaSheetState();
@@ -36,15 +36,18 @@ class _UnduhNotulaSheetState extends ConsumerState<_UnduhNotulaSheet> {
   _DocFormat? _loading;
 
   Future<void> _download(_DocFormat format) async {
+    // Baca state terbaru saat download dimulai — bukan snapshot dari saat sheet dibuka
+    final notula = ref.read(notulaProvider(widget.meeting.id));
+    if (notula == null) return;
     setState(() => _loading = format);
     try {
       switch (format) {
         case _DocFormat.pdf:
-          await PdfService.instance.shareNotulaPdf(meeting: widget.meeting, notula: widget.notula);
+          await PdfService.instance.shareNotulaPdf(meeting: widget.meeting, notula: notula);
         case _DocFormat.docx:
-          await DocxService.instance.shareNotulaDocx(meeting: widget.meeting, notula: widget.notula);
+          await DocxService.instance.shareNotulaDocx(meeting: widget.meeting, notula: notula);
         case _DocFormat.txt:
-          await TxtService.instance.shareNotulaTxt(meeting: widget.meeting, notula: widget.notula);
+          await TxtService.instance.shareNotulaTxt(meeting: widget.meeting, notula: notula);
       }
     } catch (e) {
       if (mounted) SnackbarUtil.showError(context, ref.read(appStringsProvider).unduhNotulaError(e));

@@ -57,7 +57,7 @@ class NotulaScreen extends ConsumerWidget {
             const SizedBox(width: 8),
             GestureDetector(
               onTap: (meeting == null || notula == null) ? null
-                  : () => showUnduhNotulaSheet(context, meeting: meeting, notula: notula),
+                  : () => showUnduhNotulaSheet(context, meeting: meeting),
               child: Container(width:36, height:36,
                   decoration: const BoxDecoration(color: AppColors.background, shape: BoxShape.circle),
                   child: Icon(Icons.download_rounded, size:18,

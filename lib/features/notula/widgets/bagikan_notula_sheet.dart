@@ -23,7 +23,7 @@ class _BagikanNotulaSheet extends ConsumerWidget {
   const _BagikanNotulaSheet({required this.meeting});
   final Meeting meeting;
 
-  String get _link => 'https://catatrapat.app/notula/${meeting.id}';
+  String get _link => 'catatrapat:///rapat/${meeting.id}';
 
   Future<void> _copyLink(BuildContext context, AppStrings s) async {
     await Clipboard.setData(ClipboardData(text: _link));

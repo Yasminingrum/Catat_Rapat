@@ -61,6 +61,14 @@
 				<string>io.supabase.catatrapat</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>catatrapat</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>catatrapat</string>
+			</array>
+		</dict>
 	</array>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>

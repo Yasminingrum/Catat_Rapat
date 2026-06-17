@@ -25,7 +25,7 @@ class PdfService {
       build: (ctx) => [
         _buildMeetingInfo(meeting),
         pw.SizedBox(height: 24),
-        _buildSection('I. PEMBAHASAN', notula.ringkasan),
+        _buildSection('I. PEMBAHASAN', _substituteNames(notula.ringkasan, meeting.participants)),
         pw.SizedBox(height: 16),
         _buildKeputusan(notula.keputusan),
         pw.SizedBox(height: 16),
@@ -36,6 +36,14 @@ class PdfService {
     ));
 
     return pdf.save();
+  }
+
+  String _substituteNames(String text, List<Participant> participants) {
+    var result = text;
+    for (final p in participants) {
+      if (p.name.isNotEmpty) result = result.replaceAll(p.label, p.name);
+    }
+    return result;
   }
 
   String _fileName(Meeting meeting) {

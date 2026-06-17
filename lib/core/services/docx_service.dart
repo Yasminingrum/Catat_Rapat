@@ -38,6 +38,14 @@ class DocxService {
         '<w:t xml:space="preserve">${_esc(text)}</w:t></w:r></w:p>';
   }
 
+  String _substituteNames(String text, List<Participant> participants) {
+    var result = text;
+    for (final p in participants) {
+      if (p.name.isNotEmpty) result = result.replaceAll(p.label, p.name);
+    }
+    return result;
+  }
+
   Uint8List _buildDocumentXml({required Meeting meeting, required Notula notula}) {
     final body = StringBuffer();
     body.write(_paragraph('NOTULA RAPAT', size: 18));
@@ -47,7 +55,7 @@ class DocxService {
     body.write(_paragraph(''));
 
     body.write(_paragraph('I. PEMBAHASAN', bold: true, size: 26));
-    body.write(_paragraph(notula.ringkasan));
+    body.write(_paragraph(_substituteNames(notula.ringkasan, meeting.participants)));
     body.write(_paragraph(''));
 
     body.write(_paragraph('II. KEPUTUSAN RAPAT', bold: true, size: 26));
