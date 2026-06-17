@@ -14,7 +14,6 @@ import '../../../core/providers/settings_provider.dart';
 import '../../../core/services/ai_service.dart';
 import '../../../core/services/notification_service.dart';
 import '../../../core/services/supabase_service.dart';
-import '../../../core/utils/env_config.dart';
 import '../../../core/widgets/app_button.dart';
 
 class ProcessingScreen extends ConsumerStatefulWidget {
@@ -88,19 +87,18 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen>
       if (!mounted) return;
       setState(() => _progress = 20);
 
-      // ── Tahap 2-4: Analisis, deteksi speaker & transkripsi (Whisper) ──
+      // ── Tahap 2-4: Transkripsi via Edge Function `transcribe` ─
       var transcript = <TranscriptLine>[];
       var durationSeconds = widget.durationSeconds;
 
-      if (widget.filePath != null && EnvConfig.openAiApiKey.isNotEmpty) {
+      if (audioPath != null && widget.filePath != null) {
         final fileSize = await File(widget.filePath!).length();
         if (fileSize <= whisperMaxFileSizeBytes) {
-          final result = await AiService.instance.transcribeAudio(
-            audioPath: widget.filePath!,
-            openAiKey: EnvConfig.openAiApiKey,
-          );
-          transcript = result.lines;
-          durationSeconds ??= result.durationSeconds.round();
+          final result = await SupabaseService.instance.invokeTranscribe(meeting.id);
+          if (result != null) {
+            transcript = result.lines;
+            durationSeconds ??= result.durationSeconds.round();
+          }
         }
       }
       if (!mounted) return;
@@ -109,18 +107,19 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen>
       // ── Simpan transkrip & notula ──
       await SupabaseService.instance.saveTranscript(meeting.id, transcript);
 
+      final settings = ref.read(settingsProvider);
+
       Notula notula;
-      if (transcript.isNotEmpty && EnvConfig.openAiApiKey.isNotEmpty) {
-        notula = await AiService.instance.generateNotula(
-          transcript: transcript,
-          openAiKey: EnvConfig.openAiApiKey,
-        );
+      if (transcript.isNotEmpty) {
+        notula = await SupabaseService.instance.invokeGenerateNotula(
+              transcript,
+              settings.notulaLanguage.name,
+            ) ??
+            Notula(ringkasan: '', keputusan: [], actionItems: []);
       } else {
         notula = Notula(ringkasan: '', keputusan: [], actionItems: []);
       }
       await SupabaseService.instance.saveNotula(meeting.id, notula);
-
-      final settings = ref.read(settingsProvider);
       if (settings.notifSummaryReady) {
         await NotificationService.instance.showSummaryReadyNotification(
           meetingId: meeting.id,

@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_spacing.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/localization/app_strings.dart';
 import '../../../core/models/meeting_model.dart';
+import '../../../core/models/user_model.dart';
+import '../../../core/providers/auth_provider.dart';
 import '../../../core/providers/meeting_provider.dart';
-import '../../../core/providers/settings_provider.dart';
 import '../../../core/services/docx_service.dart';
 import '../../../core/services/pdf_service.dart';
 import '../../../core/services/txt_service.dart';
@@ -35,8 +37,10 @@ class _UnduhNotulaSheet extends ConsumerStatefulWidget {
 class _UnduhNotulaSheetState extends ConsumerState<_UnduhNotulaSheet> {
   _DocFormat? _loading;
 
+  bool _isLocked(_DocFormat format, UserPlan plan) =>
+      format != _DocFormat.pdf && plan == UserPlan.free;
+
   Future<void> _download(_DocFormat format) async {
-    // Baca state terbaru saat download dimulai — bukan snapshot dari saat sheet dibuka
     final notula = ref.read(notulaProvider(widget.meeting.id));
     if (notula == null) return;
     setState(() => _loading = format);
@@ -56,12 +60,15 @@ class _UnduhNotulaSheetState extends ConsumerState<_UnduhNotulaSheet> {
     }
   }
 
+  void _goToUpgrade() {
+    Navigator.of(context).pop();
+    context.push('/upgrade');
+  }
+
   @override
   Widget build(BuildContext context) {
     final s = ref.watch(appStringsProvider);
-    final defaultFormat = ref.watch(settingsProvider).exportFormat;
-    String? badgeFor(ExportFormat matches, String? fallback) =>
-        defaultFormat == matches ? s.unduhNotulaDefaultBadge : fallback;
+    final plan = ref.watch(currentUserProvider)?.plan ?? UserPlan.free;
 
     return Padding(
       padding: EdgeInsets.fromLTRB(24, 12, 24, MediaQuery.of(context).padding.bottom + 24),
@@ -79,31 +86,36 @@ class _UnduhNotulaSheetState extends ConsumerState<_UnduhNotulaSheet> {
         _FormatRow(
           format: _DocFormat.pdf,
           icon: Icons.picture_as_pdf_outlined,
-          title: 'PDF', badge: badgeFor(ExportFormat.pdf, s.unduhNotulaRecommendedBadge),
+          title: 'PDF',
           subtitle: s.unduhNotulaPdfSubtitle,
           color: AppColors.error, bg: AppColors.errorLight,
           loading: _loading == _DocFormat.pdf,
+          locked: false,
           onTap: () => _download(_DocFormat.pdf),
         ),
         const SizedBox(height: 12),
         _FormatRow(
           format: _DocFormat.docx,
           icon: Icons.description_outlined,
-          title: 'DOCX', badge: badgeFor(ExportFormat.docx, null),
-          subtitle: s.unduhNotulaDocxSubtitle,
+          title: 'DOCX',
+          subtitle: _isLocked(_DocFormat.docx, plan) ? s.unduhNotulaLockedSubtitle : s.unduhNotulaDocxSubtitle,
           color: AppColors.primary, bg: AppColors.primaryLight,
           loading: _loading == _DocFormat.docx,
-          onTap: () => _download(_DocFormat.docx),
+          locked: _isLocked(_DocFormat.docx, plan),
+          proBadge: s.unduhNotulaProBadge,
+          onTap: _isLocked(_DocFormat.docx, plan) ? _goToUpgrade : () => _download(_DocFormat.docx),
         ),
         const SizedBox(height: 12),
         _FormatRow(
           format: _DocFormat.txt,
           icon: Icons.article_outlined,
-          title: 'TXT', badge: badgeFor(ExportFormat.txt, null),
-          subtitle: s.unduhNotulaTxtSubtitle,
+          title: 'TXT',
+          subtitle: _isLocked(_DocFormat.txt, plan) ? s.unduhNotulaLockedSubtitle : s.unduhNotulaTxtSubtitle,
           color: AppColors.textSecondary, bg: AppColors.background,
           loading: _loading == _DocFormat.txt,
-          onTap: () => _download(_DocFormat.txt),
+          locked: _isLocked(_DocFormat.txt, plan),
+          proBadge: s.unduhNotulaProBadge,
+          onTap: _isLocked(_DocFormat.txt, plan) ? _goToUpgrade : () => _download(_DocFormat.txt),
         ),
       ]),
     );
@@ -112,48 +124,62 @@ class _UnduhNotulaSheetState extends ConsumerState<_UnduhNotulaSheet> {
 
 class _FormatRow extends StatelessWidget {
   const _FormatRow({
-    required this.format, required this.icon, required this.title, this.badge,
+    required this.format, required this.icon, required this.title,
     required this.subtitle, required this.color, required this.bg,
-    required this.loading, required this.onTap,
+    required this.loading, required this.locked, required this.onTap,
+    this.proBadge,
   });
   final _DocFormat format;
   final IconData icon;
   final String title;
-  final String? badge;
+  final String? proBadge;
   final String subtitle;
   final Color color, bg;
   final bool loading;
+  final bool locked;
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => GestureDetector(
-    onTap: loading ? null : onTap,
-    child: Container(
-      padding: AppSpacing.cardPadding,
-      decoration: BoxDecoration(color: bg, borderRadius: AppRadius.lg,
-          border: format == _DocFormat.txt ? Border.all(color: AppColors.borderLight) : null),
-      child: Row(children: [
-        Icon(icon, color: color, size: 28),
-        const SizedBox(width: 12),
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            Text(title, style: AppTextStyles.bodyMd(c: color, w: FontWeight.w700)),
-            if (badge != null) ...[
-              const SizedBox(width: 8),
-              Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: const BoxDecoration(color: AppColors.surface, borderRadius: AppRadius.full),
-                  child: Text(badge!, style: AppTextStyles.caption(c: color, w: FontWeight.w600))),
-            ],
+  Widget build(BuildContext context) {
+    final effectiveColor = locked ? color.withValues(alpha: 0.4) : color;
+
+    return GestureDetector(
+      onTap: loading ? null : onTap,
+      child: Opacity(
+        opacity: locked ? 0.75 : 1.0,
+        child: Container(
+          padding: AppSpacing.cardPadding,
+          decoration: BoxDecoration(color: bg, borderRadius: AppRadius.lg,
+              border: format == _DocFormat.txt ? Border.all(color: AppColors.borderLight) : null),
+          child: Row(children: [
+            Icon(icon, color: effectiveColor, size: 28),
+            const SizedBox(width: 12),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Text(title, style: AppTextStyles.bodyMd(c: effectiveColor, w: FontWeight.w700)),
+                if (locked && proBadge != null) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: const BoxDecoration(
+                      gradient: AppColors.primaryGradient, borderRadius: AppRadius.full),
+                    child: Text(proBadge!, style: AppTextStyles.caption(c: Colors.white, w: FontWeight.w700)),
+                  ),
+                ],
+              ]),
+              const SizedBox(height: 2),
+              Text(subtitle, style: AppTextStyles.caption(c: AppColors.textSecondary)),
+            ])),
+            const SizedBox(width: 8),
+            if (loading)
+              SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: effectiveColor))
+            else if (locked)
+              Icon(Icons.lock_rounded, color: effectiveColor, size: 20)
+            else
+              Icon(Icons.download_rounded, color: color, size: 22),
           ]),
-          const SizedBox(height: 2),
-          Text(subtitle, style: AppTextStyles.caption(c: AppColors.textSecondary)),
-        ])),
-        const SizedBox(width: 8),
-        if (loading)
-          SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: color))
-        else
-          Icon(Icons.download_rounded, color: color, size: 22),
-      ]),
-    ),
-  );
+        ),
+      ),
+    );
+  }
 }

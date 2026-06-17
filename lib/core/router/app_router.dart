@@ -37,6 +37,12 @@ class _AuthListenable extends ChangeNotifier {
   }
 }
 
+final _uuidRegex = RegExp(
+  r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+  caseSensitive: false,
+);
+bool _isValidUuid(String s) => _uuidRegex.hasMatch(s);
+
 final appRouterProvider = Provider<GoRouter>((ref) {
   final authListenable = _AuthListenable(ref);
   ref.onDispose(authListenable.dispose);
@@ -58,7 +64,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // Sudah login — jangan biarkan terjebak di onboarding/login/register/verify-email/reset-password.
       final isEntryRoute = ['/login', '/register', '/verify-email', '/reset-password', '/onboarding']
           .any((r) => loc.startsWith(r));
-      return isEntryRoute ? '/home' : null;
+      if (isEntryRoute) return '/home';
+
+      // Tolak deep link dengan meeting ID yang bukan format UUID valid.
+      final idParam = state.pathParameters['id'];
+      if (idParam != null && !_isValidUuid(idParam)) return '/home';
+
+      return null;
     },
     routes: [
       GoRoute(path: '/onboarding', builder: (_, __) => const OnboardingScreen()),

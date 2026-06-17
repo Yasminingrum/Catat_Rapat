@@ -58,8 +58,8 @@ class ProfilScreen extends ConsumerWidget {
             _SectionHeader(s.profilSectionPreferences),
             _MenuItemWithValue(s.profilLanguage, Icons.language_rounded, settings.language.label,
                 onTap: () => _pickLanguage(context, ref, settings.language, s)),
-            _MenuItemWithValue(s.profilExportFormat, Icons.picture_as_pdf_outlined, settings.exportFormat.label,
-                onTap: () => _pickExportFormat(context, ref, settings.exportFormat, s)),
+            _MenuItemWithValue(s.profilNotulaLanguage, Icons.translate_rounded, settings.notulaLanguage.label,
+                onTap: () => _pickNotulaLanguage(context, ref, settings.notulaLanguage, s)),
             _MenuItemWithValue(s.profilRecordingQuality, Icons.mic_outlined, s.recordingQualityLabel(settings.recordingQuality),
                 onTap: () => _pickRecordingQuality(context, ref, settings.recordingQuality, s)),
             const SizedBox(height: 16),
@@ -173,11 +173,11 @@ Future<void> _pickLanguage(BuildContext context, WidgetRef ref, AppLanguage curr
   if (result != null) ref.read(settingsProvider.notifier).setLanguage(result);
 }
 
-Future<void> _pickExportFormat(BuildContext context, WidgetRef ref, ExportFormat current, AppStrings s) async {
-  final result = await showOptionPickerSheet<ExportFormat>(context,
-      title: s.profilExportFormat, options: ExportFormat.values, selected: current,
+Future<void> _pickNotulaLanguage(BuildContext context, WidgetRef ref, NotulaLanguage current, AppStrings s) async {
+  final result = await showOptionPickerSheet<NotulaLanguage>(context,
+      title: s.profilNotulaLanguagePickerTitle, options: NotulaLanguage.values, selected: current,
       labelOf: (v) => v.label);
-  if (result != null) ref.read(settingsProvider.notifier).setExportFormat(result);
+  if (result != null) ref.read(settingsProvider.notifier).setNotulaLanguage(result);
 }
 
 Future<void> _pickRecordingQuality(BuildContext context, WidgetRef ref, RecordingQuality current, AppStrings s) async {

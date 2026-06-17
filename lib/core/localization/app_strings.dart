@@ -73,7 +73,8 @@ class AppStrings {
   String get profilSectionPreferences => _t('PREFERENSI APLIKASI', 'APP PREFERENCES');
   String get profilLanguage => _t('Bahasa', 'Language');
   String get profilLanguagePickerTitle => _t('Pengaturan Bahasa', 'Language Settings');
-  String get profilExportFormat => _t('Format Ekspor Default', 'Default Export Format');
+  String get profilNotulaLanguage => _t('Bahasa Notula', 'Notula Language');
+  String get profilNotulaLanguagePickerTitle => _t('Bahasa Hasil Notula', 'Notula Output Language');
   String get profilRecordingQuality => _t('Kualitas Rekaman', 'Recording Quality');
   String get profilSectionNotifications => _t('NOTIFIKASI', 'NOTIFICATIONS');
   String get profilNotifActionReminder => _t('Reminder Action Item', 'Action Item Reminders');
@@ -381,11 +382,11 @@ class AppStrings {
   // ── Unduh Notula ─────────────────────────────────────────
   String get unduhNotulaTitle => _t('Unduh Notula', 'Download Minutes');
   String unduhNotulaError(Object error) => _t('Gagal mengunduh notula: $error', 'Failed to download minutes: $error');
-  String get unduhNotulaDefaultBadge => _t('Default', 'Default');
-  String get unduhNotulaRecommendedBadge => _t('Disarankan', 'Recommended');
   String get unduhNotulaPdfSubtitle => _t('Siap cetak, tanda tangan digital', 'Ready to print, digital signature');
   String get unduhNotulaDocxSubtitle => _t('Microsoft Word, bisa diedit lanjut', 'Microsoft Word, further editable');
   String get unduhNotulaTxtSubtitle => _t('Teks polos, ukuran file kecil', 'Plain text, small file size');
+  String get unduhNotulaProBadge => _t('Pro', 'Pro');
+  String get unduhNotulaLockedSubtitle => _t('Tersedia untuk paket Pro & Platinum', 'Available for Pro & Platinum plans');
 
   // ── Hapus Data & Akun ────────────────────────────────────
   String get profilDeleteAllDataTitle => _t('Hapus Semua Data Rapat?', 'Delete All Meeting Data?');

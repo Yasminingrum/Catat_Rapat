@@ -12,13 +12,12 @@ extension AppLanguageX on AppLanguage {
   };
 }
 
-enum ExportFormat { pdf, docx, txt }
+enum NotulaLanguage { indonesia, english }
 
-extension ExportFormatX on ExportFormat {
+extension NotulaLanguageX on NotulaLanguage {
   String get label => switch (this) {
-    ExportFormat.pdf => 'PDF',
-    ExportFormat.docx => 'DOCX',
-    ExportFormat.txt => 'TXT',
+    NotulaLanguage.indonesia => 'Bahasa Indonesia',
+    NotulaLanguage.english => 'English',
   };
 }
 
@@ -31,7 +30,7 @@ enum RetentionPeriod { days30, days90, year1, forever }
 class SettingsState {
   const SettingsState({
     this.language = AppLanguage.indonesia,
-    this.exportFormat = ExportFormat.pdf,
+    this.notulaLanguage = NotulaLanguage.indonesia,
     this.recordingQuality = RecordingQuality.standard,
     this.retention = RetentionPeriod.days90,
     this.notifActionReminder = true,
@@ -39,7 +38,7 @@ class SettingsState {
   });
 
   final AppLanguage language;
-  final ExportFormat exportFormat;
+  final NotulaLanguage notulaLanguage;
   final RecordingQuality recordingQuality;
   final RetentionPeriod retention;
   final bool notifActionReminder;
@@ -47,14 +46,14 @@ class SettingsState {
 
   SettingsState copyWith({
     AppLanguage? language,
-    ExportFormat? exportFormat,
+    NotulaLanguage? notulaLanguage,
     RecordingQuality? recordingQuality,
     RetentionPeriod? retention,
     bool? notifActionReminder,
     bool? notifSummaryReady,
   }) => SettingsState(
     language: language ?? this.language,
-    exportFormat: exportFormat ?? this.exportFormat,
+    notulaLanguage: notulaLanguage ?? this.notulaLanguage,
     recordingQuality: recordingQuality ?? this.recordingQuality,
     retention: retention ?? this.retention,
     notifActionReminder: notifActionReminder ?? this.notifActionReminder,
@@ -68,7 +67,7 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
   }
 
   static const _kLanguage = 'settings_language';
-  static const _kExportFormat = 'settings_export_format';
+  static const _kNotulaLanguage = 'settings_notula_language';
   static const _kRecordingQuality = 'settings_recording_quality';
   static const _kRetention = 'settings_retention';
   static const _kNotifActionReminder = 'settings_notif_action_reminder';
@@ -78,7 +77,7 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
     final prefs = await SharedPreferences.getInstance();
     state = SettingsState(
       language: AppLanguage.values[prefs.getInt(_kLanguage) ?? 0],
-      exportFormat: ExportFormat.values[prefs.getInt(_kExportFormat) ?? 0],
+      notulaLanguage: NotulaLanguage.values[prefs.getInt(_kNotulaLanguage) ?? 0],
       recordingQuality: RecordingQuality.values[prefs.getInt(_kRecordingQuality) ?? 0],
       retention: RetentionPeriod.values[prefs.getInt(_kRetention) ?? 1],
       notifActionReminder: prefs.getBool(_kNotifActionReminder) ?? true,
@@ -92,10 +91,10 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
     await prefs.setInt(_kLanguage, value.index);
   }
 
-  Future<void> setExportFormat(ExportFormat value) async {
-    state = state.copyWith(exportFormat: value);
+  Future<void> setNotulaLanguage(NotulaLanguage value) async {
+    state = state.copyWith(notulaLanguage: value);
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt(_kExportFormat, value.index);
+    await prefs.setInt(_kNotulaLanguage, value.index);
   }
 
   Future<void> setRecordingQuality(RecordingQuality value) async {

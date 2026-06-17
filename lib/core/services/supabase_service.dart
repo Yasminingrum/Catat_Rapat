@@ -201,8 +201,14 @@ class SupabaseService {
     await _client.from('profiles').update(data).eq('id', uid);
   }
 
+  static const _validPlans = {'pro', 'platinum'};
+  static const _validCycles = {'monthly', 'yearly'};
+
   /// Memanggil Edge Function Midtrans Snap, mengembalikan snap_token.
   Future<String?> createPaymentToken(String plan, String billingCycle) async {
+    if (!_validPlans.contains(plan) || !_validCycles.contains(billingCycle)) {
+      return null;
+    }
     try {
       final res = await _client.functions.invoke(
         'create-payment',
@@ -216,6 +222,56 @@ class SupabaseService {
   /// Memperbarui kolom plan di tabel profiles.
   Future<void> updateUserPlan(String plan) =>
       updateUserProfile({'plan': plan});
+
+  // ─── AI Edge Functions ─────────────────────────────────────
+
+  /// Memanggil Edge Function `transcribe`: mengunduh audio dari Storage
+  /// lalu mengirimnya ke Whisper. Mengembalikan hasil transkrip dan durasi.
+  Future<({List<TranscriptLine> lines, double durationSeconds})?> invokeTranscribe(
+    String meetingId,
+  ) async {
+    try {
+      final res = await _client.functions.invoke(
+        'transcribe',
+        body: {'meeting_id': meetingId},
+      );
+      if (res.status != 200) return null;
+      final data = res.data as Map<String, dynamic>;
+      final rawLines = (data['lines'] as List<dynamic>? ?? []);
+      final lines = rawLines.map((e) {
+        final m = e as Map<String, dynamic>;
+        return TranscriptLine(
+          timestamp: m['timestamp'] as String,
+          speakerId: m['speaker_id'] as String,
+          speaker: m['speaker'] as String,
+          text: m['text'] as String,
+        );
+      }).toList();
+      final duration = (data['duration_seconds'] as num?)?.toDouble() ?? 0;
+      return (lines: lines, durationSeconds: duration);
+    } catch (_) { return null; }
+  }
+
+  /// Memanggil Edge Function `generate-notula`: mengirim transkrip ke GPT
+  /// dan mengembalikan objek [Notula].
+  Future<Notula?> invokeGenerateNotula(
+    List<TranscriptLine> transcript,
+    String language, // 'indonesia' | 'english'
+  ) async {
+    try {
+      final res = await _client.functions.invoke(
+        'generate-notula',
+        body: {
+          'transcript': transcript
+              .map((l) => {'timestamp': l.timestamp, 'speaker': l.speaker, 'text': l.text})
+              .toList(),
+          'language': language,
+        },
+      );
+      if (res.status != 200) return null;
+      return Notula.fromJson(res.data as Map<String, dynamic>);
+    } catch (_) { return null; }
+  }
 
   /// Menghapus semua data pengguna lalu sign out.
   /// Catatan: auth user di Supabase hanya bisa dihapus via server/admin.
