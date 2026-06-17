@@ -201,6 +201,22 @@ class SupabaseService {
     await _client.from('profiles').update(data).eq('id', uid);
   }
 
+  /// Memanggil Edge Function Midtrans Snap, mengembalikan snap_token.
+  Future<String?> createPaymentToken(String plan, String billingCycle) async {
+    try {
+      final res = await _client.functions.invoke(
+        'create-payment',
+        body: {'plan': plan, 'billing_cycle': billingCycle},
+      );
+      if (res.status != 200) return null;
+      return (res.data as Map<String, dynamic>)['token'] as String?;
+    } catch (_) { return null; }
+  }
+
+  /// Memperbarui kolom plan di tabel profiles.
+  Future<void> updateUserPlan(String plan) =>
+      updateUserProfile({'plan': plan});
+
   /// Menghapus semua data pengguna lalu sign out.
   /// Catatan: auth user di Supabase hanya bisa dihapus via server/admin.
   /// Di sisi client, data di-wipe dan sesi dihentikan.

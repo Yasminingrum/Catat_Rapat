@@ -427,6 +427,10 @@ class AppStrings {
   String upgradeCtaStart(String priceLabel) => _t('Mulai $priceLabel', 'Start $priceLabel');
   String get upgradeCtaFootnote => _t('Batalkan kapan saja · Tanpa biaya tersembunyi', 'Cancel anytime · No hidden fees');
   String get upgradePaymentUnavailable => _t('Pembayaran belum tersedia di versi ini.', 'Payment is not available in this version yet.');
+  String get upgradePaymentFetchError => _t('Gagal menghubungi server pembayaran. Coba lagi.', 'Failed to connect to payment server. Please try again.');
+  String get upgradePaymentSuccess => _t('Upgrade berhasil! Selamat menikmati fitur premium.', 'Upgrade successful! Enjoy your premium features.');
+  String get upgradePaymentPending => _t('Pembayaran diproses. Akun diperbarui otomatis setelah konfirmasi.', 'Payment is being processed. Your account will be updated automatically.');
+  String get upgradePaymentError => _t('Pembayaran gagal. Silakan coba lagi.', 'Payment failed. Please try again.');
 
   String get upgradeFeatureRecordingTitle => _t('Kuota Rekaman Lebih Besar', 'More Recording Quota');
   String get upgradeFeatureRecordingSubtitle => _t('Pro: 1.000 menit · Platinum: 3.000 menit/bulan', 'Pro: 1,000 min · Platinum: 3,000 min/month');

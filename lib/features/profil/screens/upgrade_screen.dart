@@ -5,7 +5,9 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_spacing.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/localization/app_strings.dart';
-import '../../../core/utils/snackbar_util.dart';
+import '../../../core/models/user_model.dart';
+import '../../../core/services/supabase_service.dart';
+import 'payment_webview_screen.dart';
 
 enum _BillingCycle { monthly, yearly }
 enum _Plan { free, pro, platinum }
@@ -34,6 +36,7 @@ class UpgradeScreen extends ConsumerStatefulWidget {
 class _UpgradeScreenState extends ConsumerState<UpgradeScreen> {
   _BillingCycle _cycle = _BillingCycle.yearly;
   _Plan _selected = _Plan.pro;
+  bool _isLoading = false;
 
   String _ctaPrice() {
     final yearly = _cycle == _BillingCycle.yearly;
@@ -42,6 +45,62 @@ class _UpgradeScreenState extends ConsumerState<UpgradeScreen> {
       _Plan.platinum => yearly ? 'Rp 5.499.000/tahun' : 'Rp 549.000/bulan',
       _Plan.free     => '',
     };
+  }
+
+  Future<void> _startPayment(BuildContext context, AppStrings s) async {
+    setState(() => _isLoading = true);
+
+    // Capture sebelum async gap agar tidak melanggar use_build_context_synchronously
+    final messenger = ScaffoldMessenger.of(context);
+    final nav = Navigator.of(context);
+    final router = GoRouter.of(context);
+
+    try {
+      final planName = _selected == _Plan.pro ? 'pro' : 'platinum';
+      final cycle = _cycle == _BillingCycle.monthly ? 'monthly' : 'yearly';
+      final token = await SupabaseService.instance.createPaymentToken(planName, cycle);
+
+      if (!mounted) return;
+      if (token == null) {
+        _snack(messenger, s.upgradePaymentFetchError, AppColors.error);
+        return;
+      }
+
+      final targetPlan = _selected == _Plan.pro ? UserPlan.pro : UserPlan.platinum;
+      final result = await nav.push<PaymentResult>(
+        MaterialPageRoute(builder: (_) => PaymentWebviewScreen(
+          snapToken: token, plan: targetPlan,
+        )),
+      );
+
+      if (!mounted) return;
+      switch (result) {
+        case PaymentResult.success:
+          _snack(messenger, s.upgradePaymentSuccess, AppColors.success);
+          router.pop();
+        case PaymentResult.pending:
+          _snack(messenger, s.upgradePaymentPending, AppColors.primary);
+        case PaymentResult.error:
+          _snack(messenger, s.upgradePaymentError, AppColors.error);
+        case PaymentResult.cancelled:
+        case null:
+          break;
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  void _snack(ScaffoldMessengerState messenger, String message, Color color) {
+    messenger.showSnackBar(SnackBar(
+      content: Text(message,
+        style: AppTextStyles.bodyMd(c: Colors.white)),
+      backgroundColor: color,
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      margin: const EdgeInsets.all(16),
+      duration: const Duration(seconds: 3),
+    ));
   }
 
   @override
@@ -186,7 +245,7 @@ class _UpgradeScreenState extends ConsumerState<UpgradeScreen> {
               // CTA
               if (_selected != _Plan.free) ...[
                 GestureDetector(
-                  onTap: () => SnackbarUtil.showInfo(context, s.upgradePaymentUnavailable),
+                  onTap: _isLoading ? null : () => _startPayment(context, s),
                   child: Container(
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(vertical: 16),
@@ -194,12 +253,17 @@ class _UpgradeScreenState extends ConsumerState<UpgradeScreen> {
                       gradient: AppColors.primaryGradient,
                       borderRadius: AppRadius.md,
                       boxShadow: AppShadows.buttonPrimary),
-                    child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                      const Icon(Icons.bolt_rounded, color: Colors.white, size: 18),
-                      const SizedBox(width: 8),
-                      Text(s.upgradeCtaStart(_ctaPrice()),
-                        style: AppTextStyles.bodyLg(c: Colors.white, w: FontWeight.w700)),
-                    ]),
+                    child: _isLoading
+                        ? const Center(child: SizedBox(
+                            width: 22, height: 22,
+                            child: CircularProgressIndicator(
+                              color: Colors.white, strokeWidth: 2.5)))
+                        : Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                            const Icon(Icons.bolt_rounded, color: Colors.white, size: 18),
+                            const SizedBox(width: 8),
+                            Text(s.upgradeCtaStart(_ctaPrice()),
+                              style: AppTextStyles.bodyLg(c: Colors.white, w: FontWeight.w700)),
+                          ]),
                   ),
                 ),
                 const SizedBox(height: 8),

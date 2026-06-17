@@ -234,6 +234,15 @@ class AuthNotifier extends StateNotifier<AuthState> {
     } catch (_) { return false; }
   }
 
+  /// Memperbarui plan langganan dan memuat ulang profil.
+  Future<bool> upgradePlan(UserPlan plan) async {
+    try {
+      await _supa.updateUserPlan(plan.name);
+      await _loadProfile();
+      return true;
+    } catch (_) { return false; }
+  }
+
   /// Mengirim permintaan ganti email. Supabase akan mengirim tautan
   /// konfirmasi ke alamat email baru.
   Future<bool> updateEmail(String email) async {
