@@ -1,3 +1,5 @@
+import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/user_model.dart';
@@ -34,6 +36,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   final _supa = SupabaseService.instance;
 
+  // Menunda _loadProfile dari auth listener saat verifikasi OTP recovery
+  // sedang berlangsung, agar router tidak redirect ke /home sebelum
+  // updateUserPassword selesai.
+  bool _suppressAuthRedirect = false;
+
   void _init() {
     // Cek sesi aktif
     final user = _supa.currentUser;
@@ -44,7 +51,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     _supa.authStateStream.listen((event) {
       if (event.event == AuthChangeEvent.signedOut) {
         state = const AuthState();
-      } else if (event.event == AuthChangeEvent.signedIn) {
+      } else if (event.event == AuthChangeEvent.signedIn && !_suppressAuthRedirect) {
         _loadProfile();
       }
     });
@@ -91,7 +98,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         return false;
       }
       if (res.session != null) {
-        // Konfirmasi email tidak diwajibkan — sesi langsung aktif.
+        await _supa.migrateDeletedProfileData(email);
         await _loadProfile();
         state = state.copyWith(isLoading: false);
         return true;
@@ -108,19 +115,16 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  /// Memverifikasi kode OTP 6-digit yang dikirim ke email saat registrasi.
+  /// Memverifikasi kode OTP yang dikirim ke email saat registrasi.
   /// Jika berhasil, sesi langsung aktif (router akan redirect ke /home).
   Future<bool> verifyEmailOtp(String email, String token) async {
     state = state.copyWith(isLoading: true, error: null, message: null);
     try {
-      final res = await _supa.verifySignupOtp(email, token);
-      if (res.user != null) {
-        await _loadProfile();
-        state = state.copyWith(isLoading: false);
-        return true;
-      }
-      state = state.copyWith(isLoading: false, error: 'Kode verifikasi tidak valid');
-      return false;
+      await _supa.verifySignupOtp(email, token);
+      await _supa.migrateDeletedProfileData(email);
+      await _loadProfile();
+      state = state.copyWith(isLoading: false);
+      return true;
     } catch (e) {
       state = state.copyWith(isLoading: false, error: _mapAuthError(e));
       return false;
@@ -164,17 +168,16 @@ class AuthNotifier extends StateNotifier<AuthState> {
   /// Jika berhasil, sesi recovery menjadi sesi aktif (router akan redirect ke /home).
   Future<bool> resetPasswordWithOtp(String email, String token, String newPassword) async {
     state = state.copyWith(isLoading: true, error: null, message: null);
+    _suppressAuthRedirect = true;
     try {
-      final res = await _supa.verifyRecoveryOtp(email, token);
-      if (res.user == null) {
-        state = state.copyWith(isLoading: false, error: 'Kode verifikasi tidak valid');
-        return false;
-      }
+      await _supa.verifyRecoveryOtp(email, token);
       await _supa.updateUserPassword(newPassword);
+      _suppressAuthRedirect = false;
       await _loadProfile();
       state = state.copyWith(isLoading: false);
       return true;
     } catch (e) {
+      _suppressAuthRedirect = false;
       state = state.copyWith(isLoading: false, error: _mapAuthError(e));
       return false;
     }
@@ -218,6 +221,22 @@ class AuthNotifier extends StateNotifier<AuthState> {
       }
       return e.message;
     }
+    if (e is DioException) {
+      final data = e.response?.data;
+      if (data is Map<String, dynamic>) {
+        final code = data['error_code'] as String? ?? '';
+        if (code == 'otp_expired' || code == 'otp_disabled') {
+          return 'Kode verifikasi salah atau sudah kadaluarsa. Silakan kirim ulang.';
+        }
+        final msg = data['error_description'] ?? data['msg'] ?? data['error'];
+        if (msg != null) return msg.toString();
+      }
+      if (e.type == DioExceptionType.connectionError ||
+          e.type == DioExceptionType.connectionTimeout) {
+        return 'Tidak dapat terhubung ke server. Periksa koneksi internet Anda.';
+      }
+      return 'Kode verifikasi salah atau sudah kadaluarsa. Silakan kirim ulang.';
+    }
     return e.toString();
   }
 
@@ -243,13 +262,31 @@ class AuthNotifier extends StateNotifier<AuthState> {
     } catch (_) { return false; }
   }
 
-  /// Mengirim permintaan ganti email. Supabase akan mengirim tautan
-  /// konfirmasi ke alamat email baru.
-  Future<bool> updateEmail(String email) async {
+  /// Mengirim kode OTP ke email baru untuk konfirmasi perubahan.
+  Future<bool> sendEmailChangeOtp(String newEmail) async {
+    state = state.copyWith(isLoading: true, error: null, message: null);
     try {
-      await _supa.updateUserEmail(email);
+      await _supa.updateUserEmail(newEmail);
+      state = state.copyWith(isLoading: false);
       return true;
-    } catch (_) { return false; }
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: _mapAuthError(e));
+      return false;
+    }
+  }
+
+  /// Memverifikasi kode OTP perubahan email.
+  Future<bool> verifyEmailChange(String newEmail, String token) async {
+    state = state.copyWith(isLoading: true, error: null, message: null);
+    try {
+      await _supa.verifyEmailChangeOtp(newEmail, token);
+      await _loadProfile();
+      state = state.copyWith(isLoading: false);
+      return true;
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: _mapAuthError(e));
+      return false;
+    }
   }
 
   /// Mengganti password akun pengguna yang sedang login.
@@ -266,7 +303,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
       await _supa.deleteAccount();
       state = const AuthState();
       return true;
-    } catch (_) { return false; }
+    } catch (e) {
+      debugPrint('deleteAccount error: $e');
+      return false;
+    }
   }
 }
 

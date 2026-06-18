@@ -104,13 +104,19 @@ class AppStrings {
   String get profilChangeEmailTitle => _t('Ganti Email', 'Change Email');
   String get profilNewEmailHint => _t('Alamat email baru', 'New email address');
   String get profilEmailConfirmNotice =>
-      _t('Tautan konfirmasi akan dikirim ke email baru.', 'A confirmation link will be sent to the new email.');
+      _t('Kode verifikasi akan dikirim ke email baru.', 'A verification code will be sent to the new email.');
   String get profilInvalidEmail => _t('Email tidak valid', 'Invalid email');
-  String get profilSend => _t('Kirim', 'Send');
+  String get profilSend => _t('Kirim Kode', 'Send Code');
   String get profilNameUpdated => _t('Nama berhasil diperbarui', 'Name updated successfully');
   String get profilNameUpdateFailed => _t('Gagal memperbarui nama', 'Failed to update name');
-  String get profilEmailConfirmSent => _t('Tautan konfirmasi telah dikirim ke email baru', 'A confirmation link has been sent to the new email');
+  String get profilEmailConfirmSent => _t('Kode verifikasi telah dikirim ke email baru', 'A verification code has been sent to the new email');
   String get profilEmailUpdateFailed => _t('Gagal mengubah email', 'Failed to update email');
+  String get profilEmailOtpHint => _t('Masukkan kode verifikasi', 'Enter verification code');
+  String get profilEmailVerify => _t('Verifikasi', 'Verify');
+  String get profilEmailChanged => _t('Email berhasil diperbarui', 'Email updated successfully');
+  String get profilEmailVerifyFailed => _t('Kode verifikasi salah atau kadaluarsa', 'Verification code is invalid or expired');
+  String get profilEmailResendCode => _t('Kirim Ulang Kode', 'Resend Code');
+  String profilEmailResendCooldown(int s) => _t('Kirim ulang dalam ${s}s', 'Resend in ${s}s');
 
   // ── Dialog ganti password ────────────────────────────────
   String get profilChangePasswordTitle => _t('Ganti Password', 'Change Password');

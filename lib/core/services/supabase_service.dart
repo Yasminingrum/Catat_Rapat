@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:dio/dio.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/meeting_model.dart';
 import '../models/user_model.dart';
@@ -36,38 +37,61 @@ class SupabaseService {
         redirectTo: 'io.supabase.catatrapat://login-callback/',
       );
 
-  /// Memverifikasi kode OTP 8-digit yang dikirim ke email saat registrasi.
-  Future<AuthResponse> verifySignupOtp(String email, String token) =>
-      _client.auth.verifyOTP(type: OtpType.signup, email: email, token: token);
+  // ─── Direct OTP verification via REST API ──────────────
+  // SDK verifyOTP melempar "An error occurred on token verification"
+  // karena bug key `captchaToken` vs `captcha_token` dan masalah PKCE.
+  // Bypass SDK dan panggil endpoint /auth/v1/verify langsung.
+
+  static final _dio = Dio();
+
+  String get _supabaseUrl => const String.fromEnvironment('SUPABASE_URL');
+  String get _anonKey => const String.fromEnvironment('SUPABASE_ANON_KEY');
+
+  Future<Map<String, dynamic>> _verifyOtpDirect(
+      String email, String token, String type) async {
+    final res = await _dio.post(
+      '$_supabaseUrl/auth/v1/verify',
+      data: {
+        'email': email,
+        'token': token,
+        'type': type,
+      },
+      options: Options(headers: {
+        'apikey': _anonKey,
+        'Content-Type': 'application/json',
+      }),
+    );
+    return res.data as Map<String, dynamic>;
+  }
+
+  Future<void> _setSessionFromResponse(Map<String, dynamic> data) async {
+    final refreshToken = data['refresh_token'] as String?;
+    final accessToken = data['access_token'] as String?;
+    if (refreshToken != null && accessToken != null) {
+      await _client.auth.setSession(refreshToken, accessToken: accessToken);
+    }
+  }
+
+  /// Memverifikasi kode OTP signup dan membuat sesi jika berhasil.
+  Future<void> verifySignupOtp(String email, String token) async {
+    final data = await _verifyOtpDirect(email, token, 'signup');
+    await _setSessionFromResponse(data);
+  }
 
   /// Mengirim ulang kode OTP verifikasi signup ke email.
   Future<void> resendSignupOtp(String email) =>
       _client.auth.resend(type: OtpType.signup, email: email);
 
-  /// Mengecek apakah email sudah terdaftar di tabel profiles.
-  /// Mengembalikan false jika tidak ditemukan. Jika RLS memblokir query,
-  /// mengembalikan true (fail-open) agar alur reset tetap berjalan.
-  Future<bool> checkEmailExists(String email) async {
-    try {
-      final res = await _client
-          .from('profiles')
-          .select('id')
-          .eq('email', email)
-          .maybeSingle();
-      return res != null;
-    } catch (_) {
-      return true;
-    }
-  }
-
   /// Mengirim kode OTP reset password (recovery) ke email.
   Future<void> resetPasswordForEmail(String email) =>
       _client.auth.resetPasswordForEmail(email);
 
-  /// Memverifikasi kode OTP recovery 8-digit, membuat sesi sementara
+  /// Memverifikasi kode OTP recovery dan membuat sesi sementara
   /// yang dipakai untuk mengganti password.
-  Future<AuthResponse> verifyRecoveryOtp(String email, String token) =>
-      _client.auth.verifyOTP(type: OtpType.recovery, email: email, token: token);
+  Future<void> verifyRecoveryOtp(String email, String token) async {
+    final data = await _verifyOtpDirect(email, token, 'recovery');
+    await _setSessionFromResponse(data);
+  }
 
   /// Mengganti password akun pada sesi yang sedang aktif.
   Future<void> updateUserPassword(String password) =>
@@ -110,12 +134,25 @@ class SupabaseService {
   Future<void> updateMeeting(String id, Map<String, dynamic> data) =>
       _client.from('meetings').update(data).eq('id', id);
 
-  Future<void> deleteMeeting(String id) =>
-      _client.from('meetings').delete().eq('id', id);
+  Future<void> deleteMeeting(String id) async {
+    await _client.from('notulas').delete().eq('meeting_id', id);
+    await _client.from('transcript_lines').delete().eq('meeting_id', id);
+    await _client.from('participants').delete().eq('meeting_id', id);
+    await _client.from('meetings').delete().eq('id', id);
+  }
 
   Future<void> deleteAllMeetings() async {
     final uid = currentUser?.id;
     if (uid == null) return;
+    final meetings = await _client
+        .from('meetings')
+        .select('id')
+        .eq('user_id', uid);
+    final ids = (meetings as List).map((m) => m['id'] as String).toList();
+    if (ids.isEmpty) return;
+    await _client.from('notulas').delete().inFilter('meeting_id', ids);
+    await _client.from('transcript_lines').delete().inFilter('meeting_id', ids);
+    await _client.from('participants').delete().inFilter('meeting_id', ids);
     await _client.from('meetings').delete().eq('user_id', uid);
   }
 
@@ -238,6 +275,12 @@ class SupabaseService {
     final uid = currentUser?.id;
     if (uid == null) return;
     await _client.from('profiles').update(data).eq('id', uid);
+
+    // Sync ke auth.users agar Auth dashboard juga terupdate.
+    if (data.containsKey('name')) {
+      await _client.auth.updateUser(
+          UserAttributes(data: {'name': data['name']}));
+    }
   }
 
   static const _validPlans = {'pro', 'platinum'};
@@ -312,21 +355,58 @@ class SupabaseService {
     return Notula.fromJson(res.data as Map<String, dynamic>);
   }
 
-  /// Menghapus semua data pengguna lalu sign out.
-  /// Catatan: auth user di Supabase hanya bisa dihapus via server/admin.
-  /// Di sisi client, data di-wipe dan sesi dihentikan.
+  /// Menghapus semua data pengguna via Edge Function (service_role bypass RLS),
+  /// termasuk auth user, lalu sign out di client.
   Future<void> deleteAccount() async {
-    final uid = currentUser?.id;
-    if (uid == null) return;
-    await _client.from('meetings').delete().eq('user_id', uid);
-    await _client.from('profiles').delete().eq('id', uid);
+    final res = await _client.functions.invoke('delete-account');
+    if (res.status != 200) {
+      throw Exception('Gagal menghapus akun (status ${res.status})');
+    }
     await _client.auth.signOut();
   }
 
-  /// Mengubah alamat email akun. Supabase mengirim tautan konfirmasi ke
-  /// email baru sebelum perubahan benar-benar diterapkan.
+  /// Setelah registrasi, cek apakah ada profil lama yang sudah dihapus
+  /// dengan email yang sama. Jika ada, carry-over plan & token_used
+  /// agar user tidak bisa abuse free tier dengan hapus-daftar ulang.
+  Future<void> migrateDeletedProfileData(String email) async {
+    final uid = currentUser?.id;
+    if (uid == null) return;
+    try {
+      final old = await _client
+          .from('profiles')
+          .select('plan, token_used')
+          .eq('email', email)
+          .not('deleted_at', 'is', null)
+          .order('deleted_at', ascending: false)
+          .limit(1)
+          .maybeSingle();
+      if (old != null) {
+        await _client.from('profiles').update({
+          'plan': old['plan'],
+          'token_used': old['token_used'],
+        }).eq('id', uid);
+      }
+    } catch (_) {}
+  }
+
+  /// Mengirim kode OTP ke email baru untuk konfirmasi perubahan email.
   Future<void> updateUserEmail(String email) =>
       _client.auth.updateUser(UserAttributes(email: email));
+
+  /// Memverifikasi kode OTP perubahan email, lalu update auth.users.email
+  /// via Edge Function (admin API) agar login dengan email baru bisa dilakukan.
+  Future<void> verifyEmailChangeOtp(String newEmail, String token) async {
+    final data = await _verifyOtpDirect(newEmail, token, 'email_change');
+    await _setSessionFromResponse(data);
+
+    final res = await _client.functions.invoke(
+      'update-email',
+      body: {'new_email': newEmail},
+    );
+    if (res.status != 200) {
+      throw Exception('Gagal memperbarui email (status ${res.status})');
+    }
+  }
 
   /// Menambah pemakaian token AI (dalam menit) bulan ini untuk pengguna saat ini.
   Future<void> consumeTokens(int minutes) async {

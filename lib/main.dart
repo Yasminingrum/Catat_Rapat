@@ -22,9 +22,15 @@ Future<void> main() async {
 
   // Inisialisasi Supabase
   // Nilai diisi via --dart-define (lihat .env.example untuk referensi)
+  // authFlowType: implicit agar verifikasi OTP (signup, recovery, email
+  // change) bekerja tanpa deep link. PKCE mengikat token ke code_challenge
+  // sehingga verifyOTP gagal memvalidasi kode yang dikirim via email.
   await Supabase.initialize(
     url: const String.fromEnvironment('SUPABASE_URL'),
     publishableKey: const String.fromEnvironment('SUPABASE_ANON_KEY'),
+    authOptions: const FlutterAuthClientOptions(
+      authFlowType: AuthFlowType.implicit,
+    ),
   );
 
   // Inisialisasi notifikasi lokal & minta izin sejak awal

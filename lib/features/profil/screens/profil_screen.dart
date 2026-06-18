@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -195,14 +196,15 @@ Future<void> _pickRetention(BuildContext context, WidgetRef ref, RetentionPeriod
 }
 
 Future<void> _editEmail(BuildContext context, WidgetRef ref, AppUser? user, AppStrings s) async {
-  final result = await showDialog<bool>(
+  final result = await showDialog<String>(
     context: context,
+    barrierDismissible: false,
     builder: (_) => _EditEmailDialog(initialEmail: user?.email ?? '', s: s),
   );
   if (!context.mounted) return;
-  if (result == true) {
-    SnackbarUtil.showSuccess(context, s.profilEmailConfirmSent);
-  } else if (result == false) {
+  if (result == 'changed') {
+    SnackbarUtil.showSuccess(context, s.profilEmailChanged);
+  } else if (result == 'send_failed') {
     SnackbarUtil.showError(context, s.profilEmailUpdateFailed);
   }
 }
@@ -326,59 +328,148 @@ class _EditEmailDialog extends ConsumerStatefulWidget {
 }
 
 class _EditEmailDialogState extends ConsumerState<_EditEmailDialog> {
-  late final _ctrl = TextEditingController(text: widget.initialEmail);
+  late final _emailCtrl = TextEditingController(text: widget.initialEmail);
+  final _otpCtrl = TextEditingController();
   bool _saving = false;
   String? _error;
+  bool _otpSent = false;
+  String _newEmail = '';
+  int _resendCooldown = 0;
+  Timer? _cooldownTimer;
 
   @override
   void dispose() {
-    _ctrl.dispose();
+    _emailCtrl.dispose();
+    _otpCtrl.dispose();
+    _cooldownTimer?.cancel();
     super.dispose();
   }
 
-  Future<void> _save() async {
-    final email = _ctrl.text.trim();
+  void _startCooldown() {
+    setState(() => _resendCooldown = 60);
+    _cooldownTimer?.cancel();
+    _cooldownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_resendCooldown <= 1) {
+        timer.cancel();
+        if (mounted) setState(() => _resendCooldown = 0);
+      } else {
+        if (mounted) setState(() => _resendCooldown--);
+      }
+    });
+  }
+
+  Future<void> _sendCode() async {
+    final email = _emailCtrl.text.trim();
     if (email.isEmpty || !email.contains('@')) {
       setState(() => _error = widget.s.profilInvalidEmail);
       return;
     }
-    setState(() {
-      _saving = true;
-      _error = null;
-    });
-    final ok = await ref.read(authProvider.notifier).updateEmail(email);
+    setState(() { _saving = true; _error = null; });
+    final ok = await ref.read(authProvider.notifier).sendEmailChangeOtp(email);
     if (!mounted) return;
-    Navigator.of(context).pop(ok);
+    if (ok) {
+      setState(() { _saving = false; _otpSent = true; _newEmail = email; });
+      _startCooldown();
+    } else {
+      setState(() { _saving = false; _error = ref.read(authProvider).error ?? widget.s.profilEmailUpdateFailed; });
+    }
+  }
+
+  Future<void> _resendCode() async {
+    setState(() => _error = null);
+    final ok = await ref.read(authProvider.notifier).sendEmailChangeOtp(_newEmail);
+    if (!mounted) return;
+    if (ok) {
+      _startCooldown();
+    } else {
+      setState(() => _error = ref.read(authProvider).error ?? widget.s.profilEmailUpdateFailed);
+    }
+  }
+
+  Future<void> _verify() async {
+    final code = _otpCtrl.text.trim();
+    if (code.isEmpty) return;
+    setState(() { _saving = true; _error = null; });
+    final ok = await ref.read(authProvider.notifier).verifyEmailChange(_newEmail, code);
+    if (!mounted) return;
+    if (ok) {
+      Navigator.of(context).pop('changed');
+    } else {
+      setState(() { _saving = false; _error = ref.read(authProvider).error ?? widget.s.profilEmailVerifyFailed; });
+    }
   }
 
   @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: Text(widget.s.profilChangeEmailTitle, style: AppTextStyles.displaySm()),
-    content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-      TextField(
-        controller: _ctrl,
-        autofocus: true,
-        keyboardType: TextInputType.emailAddress,
-        decoration: InputDecoration(hintText: widget.s.profilNewEmailHint),
-      ),
-      const SizedBox(height: 8),
-      Text(widget.s.profilEmailConfirmNotice, style: AppTextStyles.caption()),
-      if (_error != null) ...[
-        const SizedBox(height: 4),
-        Text(_error!, style: AppTextStyles.caption(c: AppColors.error)),
+  Widget build(BuildContext context) {
+    if (!_otpSent) {
+      return AlertDialog(
+        title: Text(widget.s.profilChangeEmailTitle, style: AppTextStyles.displaySm()),
+        content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          TextField(
+            controller: _emailCtrl,
+            autofocus: true,
+            keyboardType: TextInputType.emailAddress,
+            decoration: InputDecoration(hintText: widget.s.profilNewEmailHint),
+          ),
+          const SizedBox(height: 8),
+          Text(widget.s.profilEmailConfirmNotice, style: AppTextStyles.caption()),
+          if (_error != null) ...[
+            const SizedBox(height: 4),
+            Text(_error!, style: AppTextStyles.caption(c: AppColors.error)),
+          ],
+        ]),
+        actions: [
+          TextButton(
+              onPressed: _saving ? null : () => Navigator.of(context).pop(),
+              child: Text(widget.s.commonCancel)),
+          TextButton(
+              onPressed: _saving ? null : _sendCode,
+              child: _saving
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                  : Text(widget.s.profilSend)),
+        ],
+      );
+    }
+
+    return AlertDialog(
+      title: Text(widget.s.profilChangeEmailTitle, style: AppTextStyles.displaySm()),
+      content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(widget.s.profilEmailConfirmSent, style: AppTextStyles.bodySm(c: AppColors.textSecondary)),
+        Text(_newEmail, style: AppTextStyles.bodySm(c: AppColors.primary, w: FontWeight.w600)),
+        const SizedBox(height: 16),
+        TextField(
+          controller: _otpCtrl,
+          autofocus: true,
+          keyboardType: TextInputType.number,
+          decoration: InputDecoration(hintText: widget.s.profilEmailOtpHint),
+        ),
+        if (_error != null) ...[
+          const SizedBox(height: 4),
+          Text(_error!, style: AppTextStyles.caption(c: AppColors.error)),
+        ],
+        const SizedBox(height: 12),
+        Center(
+          child: _resendCooldown > 0
+              ? Text(widget.s.profilEmailResendCooldown(_resendCooldown),
+                  style: AppTextStyles.bodySm(c: AppColors.textTertiary))
+              : GestureDetector(
+                  onTap: _resendCode,
+                  child: Text(widget.s.profilEmailResendCode,
+                      style: AppTextStyles.bodySm(c: AppColors.primary, w: FontWeight.w600))),
+        ),
+      ]),
+      actions: [
+        TextButton(
+            onPressed: _saving ? null : () => Navigator.of(context).pop(),
+            child: Text(widget.s.commonCancel)),
+        TextButton(
+            onPressed: _saving ? null : _verify,
+            child: _saving
+                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                : Text(widget.s.profilEmailVerify)),
       ],
-    ]),
-    actions: [
-      TextButton(
-          onPressed: _saving ? null : () => Navigator.of(context).pop(),
-          child: Text(widget.s.commonCancel)),
-      TextButton(
-          onPressed: _saving ? null : _save,
-          child: _saving
-              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-              : Text(widget.s.profilSend)),
-    ],
-  );
+    );
+  }
 }
 
 class _ChangePasswordDialog extends ConsumerStatefulWidget {
