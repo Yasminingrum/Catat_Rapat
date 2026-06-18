@@ -10,7 +10,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_spacing.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/localization/app_strings.dart';
-import '../../../core/providers/settings_provider.dart';
+import '../../../core/services/pending_recording_service.dart';
 import '../../../core/services/realtime_transcription_service.dart';
 import '../../../core/utils/snackbar_util.dart';
 import '../../../core/utils/wav_writer.dart';
@@ -47,15 +47,8 @@ class _RecordingScreenState extends ConsumerState<RecordingScreen>
   List<double> _waveHeights = List.filled(28, 8.0);
 
   // Transkrip live (diisi dari RealtimeTranscriptionService)
-  final List<_TranscriptLine> _transcriptLines = [];
+  final List<String> _transcriptLines = [];
   bool _showTyping = false;
-
-  // Heuristik pergantian speaker live: jeda > _speakerChangeGapSeconds detik
-  // antar potongan transkrip dianggap pembicara berganti (selaras dengan
-  // heuristik post-processing di ai_service.dart).
-  static const _speakerChangeGapSeconds = 1.5;
-  DateTime? _lastTranscriptAt;
-  int _liveSpeakerIdx = 0;
 
   late AnimationController _pulseController;
 
@@ -85,41 +78,26 @@ class _RecordingScreenState extends ConsumerState<RecordingScreen>
     final path = '${dir.path}/recording_${DateTime.now().millisecondsSinceEpoch}.wav';
     _recordingPath = path;
 
-    // Tentukan sample rate dari pengaturan Kualitas Rekaman, kecuali transkripsi
-    // live aktif — OpenAI Realtime API mensyaratkan PCM16 mono 24kHz.
-    final sampleRate = _liveTranscription.isAvailable
-        ? 24000
-        : switch (ref.read(settingsProvider).recordingQuality) {
-            RecordingQuality.standard => 16000,
-            RecordingQuality.high => 32000,
-            RecordingQuality.veryHigh => 48000,
-          };
+    // OpenAI Realtime API mensyaratkan PCM16 mono 24kHz; gunakan 24kHz secara
+    // default karena kompatibel dengan Whisper dan kualitasnya memadai.
+    const sampleRate = 24000;
 
     _wavWriter = WavWriter(path, sampleRate: sampleRate, numChannels: 1);
     await _wavWriter!.open();
 
-    // Transkripsi live via OpenAI Realtime API (jika OPENAI_API_KEY tersedia)
-    if (_liveTranscription.isAvailable) {
-      await _liveTranscription.connect();
+    // Transkripsi live via OpenAI Realtime API (key diambil dari Supabase)
+    await _liveTranscription.connect();
+    if (_liveTranscription.isConnected) {
       _transcriptSub = _liveTranscription.transcriptStream.listen((text) {
         if (!mounted) return;
-        final now = DateTime.now();
-        if (_lastTranscriptAt != null &&
-            now.difference(_lastTranscriptAt!).inMilliseconds / 1000 > _speakerChangeGapSeconds) {
-          _liveSpeakerIdx = (_liveSpeakerIdx + 1) % 3;
-        }
-        _lastTranscriptAt = now;
         setState(() {
-          _transcriptLines.add(_TranscriptLine(
-            speaker: ref.read(appStringsProvider).assignSpeakerVoiceLabel(_liveSpeakerIdx + 1),
-            speakerIdx: _liveSpeakerIdx,
-            text: text,
-          ));
+          _transcriptLines.add(text);
         });
       });
     }
+    if (mounted) setState(() {});
 
-    final stream = await _recorder.startStream(RecordConfig(
+    final stream = await _recorder.startStream(const RecordConfig(
       encoder: AudioEncoder.pcm16bits,
       sampleRate: sampleRate,
       numChannels: 1,
@@ -174,6 +152,18 @@ class _RecordingScreenState extends ConsumerState<RecordingScreen>
     await _wavWriter?.close();
     await _liveTranscription.disconnect();
     _stopAll();
+    if (!mounted) return;
+
+    if (_recordingPath != null) {
+      await PendingRecordingService.instance.save(PendingRecording(
+        filePath: _recordingPath!,
+        title: widget.title,
+        agenda: widget.agenda,
+        durationSeconds: _elapsedSeconds,
+        createdAt: DateTime.now(),
+      ));
+    }
+
     if (!mounted) return;
     context.pushReplacement('/processing', extra: {
       'title': widget.title,
@@ -321,7 +311,7 @@ class _RecordingScreenState extends ConsumerState<RecordingScreen>
                       s: s,
                       lines: _transcriptLines,
                       showTyping: _showTyping && !_isPaused,
-                      isLive: _liveTranscription.isAvailable,
+                      isLive: _liveTranscription.isConnected,
                     ),
                     const SizedBox(height: AppSpacing.xxl),
                   ],
@@ -541,17 +531,6 @@ class _WaveformVisualizer extends StatelessWidget {
 
 // ─── Live Transcript ──────────────────────────────────────────────────────────
 
-class _TranscriptLine {
-  const _TranscriptLine({
-    required this.speaker,
-    required this.speakerIdx,
-    required this.text,
-  });
-  final String speaker;
-  final int speakerIdx;
-  final String text;
-}
-
 class _LiveTranscriptCard extends StatelessWidget {
   const _LiveTranscriptCard({
     required this.s,
@@ -561,16 +540,9 @@ class _LiveTranscriptCard extends StatelessWidget {
   });
 
   final AppStrings s;
-  final List<_TranscriptLine> lines;
+  final List<String> lines;
   final bool showTyping;
   final bool isLive;
-
-  static const _speakerColors = [
-    AppColors.speaker1, AppColors.speaker2, AppColors.speaker3
-  ];
-  static const _speakerBgColors = [
-    AppColors.speaker1Bg, AppColors.speaker2Bg, AppColors.speaker3Bg
-  ];
 
   @override
   Widget build(BuildContext context) {
@@ -622,47 +594,9 @@ class _LiveTranscriptCard extends StatelessWidget {
               shrinkWrap: true,
               itemCount: lines.length,
               separatorBuilder: (_, __) =>
-                  const SizedBox(height: AppSpacing.md),
-              itemBuilder: (_, i) {
-                final line = lines[i];
-                final idx = line.speakerIdx.clamp(0, 2);
-                return Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: 22, height: 22,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: _speakerBgColors[idx],
-                      ),
-                      child: Center(
-                        child: Text(
-                          '${line.speakerIdx + 1}',
-                          style: AppTextStyles.caption(
-                              c: _speakerColors[idx],
-                              w: FontWeight.w700),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(line.speaker,
-                              style: AppTextStyles.caption(
-                                  c: _speakerColors[idx],
-                                  w: FontWeight.w700)),
-                          const SizedBox(height: 2),
-                          Text(line.text,
-                              style: AppTextStyles.bodyMd(
-                                  c: const Color(0xFF334155))),
-                        ],
-                      ),
-                    ),
-                  ],
-                );
-              },
+                  const SizedBox(height: AppSpacing.sm),
+              itemBuilder: (_, i) => Text(lines[i],
+                  style: AppTextStyles.bodyMd(c: const Color(0xFF334155))),
             ),
           ),
 

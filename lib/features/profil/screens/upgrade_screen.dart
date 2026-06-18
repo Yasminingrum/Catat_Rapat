@@ -23,7 +23,6 @@ class _PremiumFeature {
 List<_PremiumFeature> _premiumFeatures(AppStrings s) => [
   _PremiumFeature(Icons.mic_rounded, s.upgradeFeatureRecordingTitle, s.upgradeFeatureRecordingSubtitle),
   _PremiumFeature(Icons.description_rounded, s.upgradeFeatureNotulaTitle, s.upgradeFeatureNotulaSubtitle),
-  _PremiumFeature(Icons.groups_rounded, s.upgradeFeatureParticipantsTitle, s.upgradeFeatureParticipantsSubtitle),
   _PremiumFeature(Icons.history_rounded, s.upgradeFeatureHistoryTitle, s.upgradeFeatureHistorySubtitle),
   _PremiumFeature(Icons.star_rounded, s.upgradeFeatureAccuracyTitle, s.upgradeFeatureAccuracySubtitle),
   _PremiumFeature(Icons.shield_rounded, s.upgradeFeatureEncryptionTitle, s.upgradeFeatureEncryptionSubtitle),

@@ -7,7 +7,7 @@ import '../../../core/localization/app_strings.dart';
 import '../../../core/models/meeting_model.dart' show TranscriptLine;
 import '../../../core/providers/meeting_provider.dart';
 import '../../../core/widgets/app_bottom_nav.dart';
-import '../../../core/widgets/app_button.dart';
+
 
 class TranscriptScreen extends ConsumerStatefulWidget {
   const TranscriptScreen({super.key, required this.meetingId});
@@ -59,24 +59,6 @@ class _TranscriptScreenState extends ConsumerState<TranscriptScreen> {
           },
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e,_) => Center(child: Text(s.transcriptError(e))))),
-
-        // Edit Peserta Rapat
-        Container(
-          padding: EdgeInsets.fromLTRB(24, 16, 24, MediaQuery.of(context).padding.bottom + 16),
-          decoration: const BoxDecoration(color: AppColors.surface,
-              border: Border(top: BorderSide(color: AppColors.borderLight))),
-          child: AppButton(
-            label: s.transcriptEditParticipants,
-            icon: const Icon(Icons.people_alt_rounded, color: Colors.white, size: 18),
-            onPressed: meetingAsync.valueOrNull == null ? null : () => context.push(
-              '/rapat/${widget.meetingId}/peserta',
-              extra: {
-                'title': meetingAsync.valueOrNull?.title ?? '',
-                'popOnSave': true,
-              },
-            ),
-          ),
-        ),
       ])),
       bottomNavigationBar: const AppBottomNav(currentIndex: 0),
     );
@@ -87,31 +69,11 @@ class _TranscriptTile extends StatelessWidget {
   const _TranscriptTile({required this.line});
   final TranscriptLine line;
 
-  static Color _speakerColor(String id) {
-    final i = int.tryParse(id.replaceAll('S','')) ?? 1;
-    return AppColors.speakerColor(i-1);
-  }
-  static Color _speakerBg(String id) {
-    final i = int.tryParse(id.replaceAll('S','')) ?? 1;
-    return AppColors.speakerBg(i-1);
-  }
-
   @override
   Widget build(BuildContext context) => Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-    Column(children: [
-      Text(line.timestamp, style: AppTextStyles.caption(c: AppColors.textTertiary)
-          .copyWith(fontFeatures: [const FontFeature.tabularFigures()])),
-    ]),
-    const SizedBox(width: 10),
-    Container(width:22, height:22, decoration: BoxDecoration(shape: BoxShape.circle,
-        color: _speakerBg(line.speakerId)),
-        child: Center(child: Text(line.speakerId.replaceAll('S',''),
-            style: AppTextStyles.caption(c: _speakerColor(line.speakerId), w: FontWeight.w700)))),
-    const SizedBox(width: 8),
-    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(line.speaker, style: AppTextStyles.caption(c: _speakerColor(line.speakerId), w: FontWeight.w700)),
-      const SizedBox(height: 2),
-      Text(line.text, style: AppTextStyles.bodyMd(c: const Color(0xFF334155))),
-    ])),
+    Text(line.timestamp, style: AppTextStyles.caption(c: AppColors.textTertiary)
+        .copyWith(fontFeatures: [const FontFeature.tabularFigures()])),
+    const SizedBox(width: 12),
+    Expanded(child: Text(line.text, style: AppTextStyles.bodyMd(c: const Color(0xFF334155)))),
   ]);
 }

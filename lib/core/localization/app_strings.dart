@@ -64,6 +64,9 @@ class AppStrings {
   String get riwayatStatusDone => _t('Selesai', 'Done');
   String get riwayatStatusFailed => _t('Gagal', 'Failed');
   String get riwayatReprocessMenuItem => _t('Proses Ulang', 'Reprocess');
+  String get riwayatPendingSectionTitle => _t('Rekaman Belum Diproses', 'Unprocessed Recordings');
+  String get riwayatPendingProcess => _t('Proses', 'Process');
+  String get riwayatPendingDelete => _t('Hapus', 'Delete');
 
   // ── Profil & Pengaturan ──────────────────────────────────
   String get profilTitle => _t('Profil & Pengaturan', 'Profile & Settings');
@@ -315,6 +318,9 @@ class AppStrings {
   String processingErrorGeneric(int status) => _t(
       'Layanan AI mengembalikan kesalahan ($status). Silakan coba lagi.',
       'The AI service returned an error ($status). Please try again.');
+  String get processingErrorFileTooLarge => _t(
+      'File rekaman terlalu besar untuk diunggah. Coba rekam rapat lebih singkat atau hubungi admin untuk menaikkan batas penyimpanan.',
+      'The recording file is too large to upload. Try recording a shorter meeting or contact admin to increase the storage limit.');
 
   // ── Notula ───────────────────────────────────────────────
   String get notulaSummaryTitle => _t('Ringkasan', 'Summary');
@@ -329,6 +335,10 @@ class AppStrings {
   String get notulaEditAndShare => _t('EDIT DAN BAGIKAN NOTULA', 'EDIT AND SHARE MINUTES');
   String get notulaEditButton => _t('Edit Notula', 'Edit Minutes');
   String get notulaReprocessButton => _t('Proses Ulang Transkripsi', 'Reprocess Transcription');
+  String get notulaRegenerateButton => _t('Buat Ulang Notula', 'Regenerate Minutes');
+  String get notulaRegenerateLoading => _t('Membuat ulang notula...', 'Regenerating minutes...');
+  String get notulaRegenerateSuccess => _t('Notula berhasil dibuat ulang', 'Minutes regenerated successfully');
+  String get notulaRegenerateNoTranscript => _t('Tidak ada transkripsi untuk membuat notula', 'No transcript available to generate minutes');
   String get notulaFailedBanner => _t(
     'Transkripsi gagal diproses. Audio tersimpan — tekan tombol di bawah untuk mencoba lagi.',
     'Transcription failed. Audio is saved — tap the button below to try again.',
@@ -373,19 +383,15 @@ class AppStrings {
 
   // ── Bagikan Notula ───────────────────────────────────────
   String get bagikanNotulaTitle => _t('Bagikan Notula', 'Share Minutes');
-  String get bagikanNotulaLinkCopied => _t('Link disalin ke clipboard', 'Link copied to clipboard');
-  String get bagikanNotulaOrShareVia => _t('Atau bagikan melalui', 'Or share via');
+  String get bagikanNotulaCopied => _t('Ringkasan disalin ke clipboard', 'Summary copied to clipboard');
+  String get bagikanNotulaShareVia => _t('Bagikan melalui', 'Share via');
   String bagikanNotulaEmailSubject(String title) => _t('Notula Rapat: $title', 'Meeting Minutes: $title');
-  String bagikanNotulaEmailBody(String title, String link) => _t(
-      'Berikut tautan notula rapat "$title":\n$link',
-      'Here is the link to the meeting minutes for "$title":\n$link');
   String get bagikanNotulaEmailError => _t('Tidak dapat membuka aplikasi email', 'Could not open email app');
-  String bagikanNotulaWhatsappText(String title, String link) =>
-      _t('Notula Rapat: $title\n$link', 'Meeting Minutes: $title\n$link');
   String get bagikanNotulaWhatsappError => _t('Tidak dapat membuka WhatsApp', 'Could not open WhatsApp');
   String get bagikanNotulaChannelEmail => _t('Email', 'Email');
   String get bagikanNotulaChannelWhatsapp => 'WhatsApp';
-  String get bagikanNotulaChannelCopyLink => _t('Salin Link', 'Copy Link');
+  String get bagikanNotulaChannelCopy => _t('Salin Teks', 'Copy Text');
+  String get bagikanNotulaLocked => _t('Fitur Bagikan tersedia untuk paket Pro & Platinum', 'Share is available for Pro & Platinum plans');
 
   // ── Unduh Notula ─────────────────────────────────────────
   String get unduhNotulaTitle => _t('Unduh Notula', 'Download Minutes');

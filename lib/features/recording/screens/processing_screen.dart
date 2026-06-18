@@ -12,9 +12,10 @@ import '../../../core/models/meeting_model.dart';
 import '../../../core/providers/auth_provider.dart';
 import '../../../core/providers/meeting_provider.dart';
 import '../../../core/providers/settings_provider.dart';
-import '../../../core/services/ai_service.dart';
 import '../../../core/services/notification_service.dart';
+import '../../../core/services/pending_recording_service.dart';
 import '../../../core/services/supabase_service.dart';
+import '../../../core/utils/wav_writer.dart';
 import '../../../core/widgets/app_button.dart';
 
 class ProcessingScreen extends ConsumerStatefulWidget {
@@ -101,15 +102,23 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen>
       }
 
       if (_uploadedAudioPath == null && widget.filePath != null) {
+        // Downsample 24kHz → 16kHz untuk mengurangi ukuran file ~33%
+        // sebelum upload ke Supabase Storage.
+        String uploadPath = widget.filePath!;
+        if (uploadPath.endsWith('.wav')) {
+          uploadPath = await WavWriter.downsample(uploadPath);
+        }
         _uploadedAudioPath = await SupabaseService.instance
-            .uploadAudio(meeting.id, widget.filePath!);
-        // Simpan metadata audio segera agar retry bisa menemukan file di Storage
-        // meski transkripsi gagal nanti.
+            .uploadAudio(meeting.id, uploadPath);
         if (_uploadedAudioPath != null) {
           await SupabaseService.instance.updateMeeting(meeting.id, {
             'has_audio': true,
             'audio_path': _uploadedAudioPath,
           });
+        }
+        // Hapus file downsampled sementara.
+        if (uploadPath != widget.filePath!) {
+          try { await File(uploadPath).delete(); } catch (_) {}
         }
       }
       final audioPath = _uploadedAudioPath;
@@ -122,15 +131,9 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen>
       var durationSeconds = widget.durationSeconds;
 
       if (audioPath != null) {
-        // Cek ukuran hanya jika file lokal tersedia; jika tidak (proses ulang),
-        // langsung kirim ke Edge Function dan biarkan sisi server yang memvalidasi.
-        final fileTooLarge = widget.filePath != null &&
-            await File(widget.filePath!).length() > whisperMaxFileSizeBytes;
-        if (!fileTooLarge) {
-          final result = await SupabaseService.instance.invokeTranscribe(meeting.id);
-          transcript = result.lines;
-          durationSeconds = result.durationSeconds.round();
-        }
+        final result = await SupabaseService.instance.invokeTranscribe(meeting.id);
+        transcript = result.lines;
+        durationSeconds = result.durationSeconds.round();
       }
       if (!mounted) return;
       setState(() => _progress = 75);
@@ -183,6 +186,11 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen>
       ref.invalidate(notulaProvider(meeting.id));
       await ref.read(meetingListProvider.notifier).refresh();
 
+      // Hapus dari antrian pending karena sudah berhasil diproses.
+      if (widget.filePath != null) {
+        await PendingRecordingService.instance.remove(widget.filePath!);
+      }
+
       if (!mounted) return;
       setState(() => _progress = 100);
 
@@ -219,6 +227,16 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen>
         default:
           return s.processingErrorGeneric(status);
       }
+    }
+    if (e is SocketException) {
+      return s.processingErrorNoConnection;
+    }
+    final msg = e.toString().toLowerCase();
+    if (msg.contains('payload too large') || msg.contains('maximum allowed size')) {
+      return s.processingErrorFileTooLarge;
+    }
+    if (msg.contains('socket') || msg.contains('connection abort') || msg.contains('timeout')) {
+      return s.processingErrorNoConnection;
     }
     return e.toString();
   }

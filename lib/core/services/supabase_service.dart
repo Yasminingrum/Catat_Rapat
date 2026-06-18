@@ -144,18 +144,41 @@ class SupabaseService {
   ///
   /// Path harus berbentuk `audio/{userId}/...` agar sesuai policy RLS
   /// storage (`(storage.foldername(name))[2] = auth.uid()`).
+  ///
+  /// Retry otomatis hingga 3× untuk mengatasi koneksi putus di jaringan
+  /// mobile.
   Future<String> uploadAudio(String meetingId, String filePath) async {
     final userId = currentUser?.id ?? '';
     final ext = filePath.split(RegExp(r'[\\/]')).last.split('.').last.toLowerCase();
     final path = 'audio/$userId/$meetingId.$ext';
-    await _client.storage.from('recordings').upload(
-          path,
-          File(filePath),
-          fileOptions: FileOptions(
-            upsert: true,
-            contentType: _audioContentTypes[ext],
-          ),
-        );
+
+    const maxAttempts = 3;
+    for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        await _client.storage.from('recordings').upload(
+              path,
+              File(filePath),
+              fileOptions: FileOptions(
+                upsert: true,
+                contentType: _audioContentTypes[ext],
+              ),
+            );
+        return path;
+      } on SocketException {
+        if (attempt == maxAttempts) rethrow;
+        await Future.delayed(Duration(seconds: attempt * 2));
+      } catch (e) {
+        final msg = e.toString().toLowerCase();
+        if (attempt < maxAttempts &&
+            (msg.contains('socket') ||
+             msg.contains('connection') ||
+             msg.contains('timeout'))) {
+          await Future.delayed(Duration(seconds: attempt * 2));
+          continue;
+        }
+        rethrow;
+      }
+    }
     return path;
   }
 

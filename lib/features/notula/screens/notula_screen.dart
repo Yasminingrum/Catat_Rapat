@@ -6,7 +6,12 @@ import '../../../core/constants/app_spacing.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/localization/app_strings.dart';
 import '../../../core/models/meeting_model.dart';
+import '../../../core/models/user_model.dart';
+import '../../../core/providers/auth_provider.dart';
 import '../../../core/providers/meeting_provider.dart';
+import '../../../core/providers/settings_provider.dart';
+import '../../../core/services/supabase_service.dart';
+import '../../../core/utils/snackbar_util.dart';
 import '../../../core/widgets/app_bottom_nav.dart';
 import '../../../core/widgets/app_button.dart';
 import '../widgets/bagikan_notula_sheet.dart';
@@ -25,11 +30,53 @@ class NotulaScreen extends ConsumerWidget {
     return result;
   }
 
+  Future<void> _regenerateNotula(BuildContext context, WidgetRef ref) async {
+    final s = ref.read(appStringsProvider);
+    final messenger = ScaffoldMessenger.of(context);
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => PopScope(
+        canPop: false,
+        child: AlertDialog(
+          backgroundColor: AppColors.surface,
+          shape: const RoundedRectangleBorder(borderRadius: AppRadius.lg),
+          content: Row(children: [
+            const CircularProgressIndicator(),
+            const SizedBox(width: 20),
+            Expanded(child: Text(s.notulaRegenerateLoading, style: AppTextStyles.bodyMd())),
+          ]),
+        ),
+      ),
+    );
+
+    try {
+      final transcript = await SupabaseService.instance.getTranscript(meetingId);
+      if (transcript.isEmpty) {
+        if (context.mounted) Navigator.pop(context);
+        SnackbarUtil.showErrorOnMessenger(messenger, s.notulaRegenerateNoTranscript);
+        return;
+      }
+      final language = ref.read(settingsProvider).notulaLanguage.name;
+      final notula = await SupabaseService.instance.invokeGenerateNotula(transcript, language);
+      await SupabaseService.instance.saveNotula(meetingId, notula);
+      ref.invalidate(notulaProvider(meetingId));
+      if (context.mounted) Navigator.pop(context);
+      SnackbarUtil.showSuccessOnMessenger(messenger, s.notulaRegenerateSuccess);
+    } catch (e) {
+      if (context.mounted) Navigator.pop(context);
+      SnackbarUtil.showErrorOnMessenger(messenger, e.toString());
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final s = ref.watch(appStringsProvider);
     final meetingAsync = ref.watch(meetingProvider(meetingId));
     final notula = ref.watch(notulaProvider(meetingId));
+    final plan = ref.watch(currentUserProvider)?.plan ?? UserPlan.free;
+    final isShareLocked = plan == UserPlan.free;
 
     final meeting = meetingAsync.valueOrNull;
 
@@ -66,13 +113,21 @@ class NotulaScreen extends ConsumerWidget {
             // Share button
             GestureDetector(
               onTap: meeting == null ? null
-                  : () => showBagikanNotulaSheet(context, meeting: meeting),
+                  : isShareLocked
+                      ? () {
+                          SnackbarUtil.showInfo(context, s.bagikanNotulaLocked);
+                          context.push('/upgrade');
+                        }
+                      : () => showBagikanNotulaSheet(context, meeting: meeting),
               child: Opacity(
                 opacity: meeting != null ? 1.0 : 0.4,
                 child: Container(padding: const EdgeInsets.symmetric(horizontal:14, vertical:8),
-                  decoration: const BoxDecoration(color: AppColors.primary, borderRadius: AppRadius.full),
+                  decoration: BoxDecoration(
+                    color: isShareLocked ? AppColors.textTertiary : AppColors.primary,
+                    borderRadius: AppRadius.full),
                   child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    const Icon(Icons.ios_share_rounded, size:14, color: Colors.white),
+                    Icon(isShareLocked ? Icons.lock_rounded : Icons.ios_share_rounded,
+                        size:14, color: Colors.white),
                     const SizedBox(width:6),
                     Text(s.editNotulaShare, style: AppTextStyles.bodySm(c: Colors.white, w: FontWeight.w600)),
                   ])),
@@ -192,6 +247,13 @@ class NotulaScreen extends ConsumerWidget {
                         iconBg: AppColors.primaryLight, iconColor: AppColors.primary,
                         label: s.notulaViewTranscript,
                         onTap: () => context.push('/rapat/$meetingId/transcript')),
+                    if (meeting?.hasTranscript == true) ...[
+                      const Divider(height:1, indent:16, endIndent:16),
+                      _QuickLinkRow(icon: Icons.translate_rounded,
+                          iconBg: AppColors.warningLight, iconColor: AppColors.warning,
+                          label: s.notulaRegenerateButton,
+                          onTap: () => _regenerateNotula(context, ref)),
+                    ],
                   ])),
               ]))),
 

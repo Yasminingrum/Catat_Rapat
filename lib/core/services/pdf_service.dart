@@ -3,7 +3,7 @@ import 'dart:typed_data';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:path_provider/path_provider.dart';
-import 'package:printing/printing.dart';
+import 'package:share_plus/share_plus.dart';
 import '../models/meeting_model.dart';
 
 /// Menghasilkan & membagikan file PDF notula rapat.
@@ -72,7 +72,13 @@ class PdfService {
     required Notula notula,
   }) async {
     final bytes = await _buildPdfBytes(meeting: meeting, notula: notula);
-    await Printing.sharePdf(bytes: bytes, filename: _fileName(meeting));
+    final dir = await getTemporaryDirectory();
+    final path = '${dir.path}/${_fileName(meeting)}';
+    await File(path).writeAsBytes(bytes);
+    await SharePlus.instance.share(ShareParams(
+      files: [XFile(path, mimeType: 'application/pdf')],
+      subject: 'Notula Rapat: ${meeting.title}',
+    ));
   }
 
   pw.Widget _buildHeader(Meeting meeting) => pw.Column(

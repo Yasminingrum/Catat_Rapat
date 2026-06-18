@@ -1,12 +1,15 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_spacing.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/localization/app_strings.dart';
 import '../../../core/models/meeting_model.dart';
 import '../../../core/providers/meeting_provider.dart';
+import '../../../core/services/pending_recording_service.dart';
 import '../../../core/widgets/app_bottom_nav.dart';
 
 enum _RiwayatFilter { semua, berbintang, selesai, proses }
@@ -20,6 +23,24 @@ class _RiwayatScreenState extends ConsumerState<RiwayatScreen> {
   final _searchCtrl = TextEditingController();
   String _query = '';
   _RiwayatFilter _filter = _RiwayatFilter.semua;
+  List<PendingRecording> _pendingRecordings = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPending();
+  }
+
+  Future<void> _loadPending() async {
+    final list = await PendingRecordingService.instance.getAll();
+    if (mounted) setState(() => _pendingRecordings = list);
+  }
+
+  Future<void> _deletePending(PendingRecording rec) async {
+    await PendingRecordingService.instance.remove(rec.filePath);
+    try { await File(rec.filePath).delete(); } catch (_) {}
+    await _loadPending();
+  }
 
   @override void dispose() { _searchCtrl.dispose(); super.dispose(); }
 
@@ -105,7 +126,7 @@ class _RiwayatScreenState extends ConsumerState<RiwayatScreen> {
               _RiwayatFilter.selesai => filtered.where((m) => m.status == MeetingStatus.final_).toList(),
               _RiwayatFilter.proses => filtered.where((m) => m.status == MeetingStatus.draft).toList(),
             };
-            if (filtered.isEmpty) {
+            if (filtered.isEmpty && _pendingRecordings.isEmpty) {
               return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                 Icon(_query.isEmpty ? Icons.calendar_today_outlined : Icons.search_off_rounded,
                     size:40, color: AppColors.divider),
@@ -118,21 +139,51 @@ class _RiwayatScreenState extends ConsumerState<RiwayatScreen> {
                 ],
               ]));
             }
+            final pendingCount = _pendingRecordings.length;
+            final totalCount = pendingCount + (pendingCount > 0 ? 1 : 0) + filtered.length;
             return RefreshIndicator(color: AppColors.primary,
-              onRefresh: () => ref.read(meetingListProvider.notifier).refresh(),
+              onRefresh: () async {
+                await ref.read(meetingListProvider.notifier).refresh();
+                await _loadPending();
+              },
               child: ListView.separated(
                 padding: const EdgeInsets.fromLTRB(24,16,24,96),
-                itemCount: filtered.length,
+                itemCount: totalCount,
                 separatorBuilder: (_,__) => const SizedBox(height:12),
-                itemBuilder: (_, i) => _RiwayatMeetingCard(meeting: filtered[i], s: s,
-                    onTap: () => context.push('/rapat/${filtered[i].id}'),
-                    onToggleStar: () => ref.read(meetingListProvider.notifier).toggleStar(filtered[i].id),
-                    onDelete: () => _confirmDelete(filtered[i]),
+                itemBuilder: (_, i) {
+                  if (pendingCount > 0 && i < pendingCount) {
+                    final rec = _pendingRecordings[i];
+                    return _PendingRecordingCard(
+                      s: s,
+                      recording: rec,
+                      showHeader: i == 0,
+                      onProcess: () async {
+                        await context.push('/processing', extra: {
+                          'title': rec.title,
+                          'agenda': rec.agenda,
+                          'filePath': rec.filePath,
+                          'durationSeconds': rec.durationSeconds,
+                        });
+                        _loadPending();
+                      },
+                      onDelete: () => _deletePending(rec),
+                    );
+                  }
+                  if (pendingCount > 0 && i == pendingCount) {
+                    return const SizedBox(height: 4);
+                  }
+                  final mi = i - pendingCount - (pendingCount > 0 ? 1 : 0);
+                  final m = filtered[mi];
+                  return _RiwayatMeetingCard(meeting: m, s: s,
+                    onTap: () => context.push('/rapat/${m.id}'),
+                    onToggleStar: () => ref.read(meetingListProvider.notifier).toggleStar(m.id),
+                    onDelete: () => _confirmDelete(m),
                     onReprocess: () => context.push('/processing', extra: {
-                      'title': filtered[i].title,
-                      'existingMeetingId': filtered[i].id,
-                      'existingAudioPath': filtered[i].audioPath,
-                    }))));
+                      'title': m.title,
+                      'existingMeetingId': m.id,
+                      'existingAudioPath': m.audioPath,
+                    }));
+                }));
           },
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e,_) => Center(child: Text('${s.commonError}: $e')),
@@ -270,6 +321,105 @@ class _StatusBadge extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(color: bg, borderRadius: AppRadius.full),
       child: Text(label, style: AppTextStyles.caption(c: fg, w: FontWeight.w600)),
+    );
+  }
+}
+
+class _PendingRecordingCard extends StatelessWidget {
+  const _PendingRecordingCard({
+    required this.s,
+    required this.recording,
+    required this.showHeader,
+    required this.onProcess,
+    required this.onDelete,
+  });
+
+  final AppStrings s;
+  final PendingRecording recording;
+  final bool showHeader;
+  final VoidCallback onProcess;
+  final VoidCallback onDelete;
+
+  String _formatDuration(int totalSeconds) {
+    final m = totalSeconds ~/ 60;
+    final sec = totalSeconds % 60;
+    return '${m}m ${sec}s';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (showHeader) ...[
+          Row(children: [
+            const Icon(Icons.cloud_off_rounded, size: 14, color: AppColors.warning),
+            const SizedBox(width: 6),
+            Text(s.riwayatPendingSectionTitle,
+                style: AppTextStyles.bodySm(c: AppColors.warning, w: FontWeight.w700)),
+          ]),
+          const SizedBox(height: 10),
+        ],
+        Container(
+          padding: AppSpacing.cardPadding,
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: AppRadius.lg,
+            border: Border.all(color: AppColors.warning.withValues(alpha: 0.4)),
+            boxShadow: AppShadows.card,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(recording.title,
+                  style: AppTextStyles.displayXs(w: FontWeight.w700),
+                  maxLines: 1, overflow: TextOverflow.ellipsis),
+              const SizedBox(height: 6),
+              Row(children: [
+                const Icon(Icons.timer_outlined, size: 12, color: AppColors.textTertiary),
+                const SizedBox(width: 4),
+                Text(_formatDuration(recording.durationSeconds),
+                    style: AppTextStyles.caption(c: AppColors.textSecondary)),
+                const SizedBox(width: 12),
+                const Icon(Icons.calendar_today_outlined, size: 12, color: AppColors.textTertiary),
+                const SizedBox(width: 4),
+                Text(DateFormat('d MMM yyyy').format(recording.createdAt),
+                    style: AppTextStyles.caption(c: AppColors.textSecondary)),
+              ]),
+              const SizedBox(height: 10),
+              Row(children: [
+                Expanded(
+                  child: GestureDetector(
+                    onTap: onProcess,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      decoration: const BoxDecoration(
+                        color: AppColors.primary,
+                        borderRadius: AppRadius.md,
+                      ),
+                      child: Center(child: Text(s.riwayatPendingProcess,
+                          style: AppTextStyles.bodySm(c: Colors.white, w: FontWeight.w600))),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: onDelete,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                    decoration: const BoxDecoration(
+                      color: AppColors.errorLight,
+                      borderRadius: AppRadius.md,
+                    ),
+                    child: Text(s.riwayatPendingDelete,
+                        style: AppTextStyles.bodySm(c: AppColors.error, w: FontWeight.w600)),
+                  ),
+                ),
+              ]),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

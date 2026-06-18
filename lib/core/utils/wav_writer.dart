@@ -70,4 +70,49 @@ class WavWriter {
 
   Uint8List _uint32(int v) =>
       (ByteData(4)..setUint32(0, v, Endian.little)).buffer.asUint8List();
+
+  /// Downsample WAV dari [srcRate] ke [dstRate] menggunakan interpolasi linear.
+  /// Mengembalikan path file baru yang sudah di-downsample.
+  /// Jika file sudah cukup kecil atau rate sama, mengembalikan [srcPath].
+  static Future<String> downsample(
+    String srcPath, {
+    int dstRate = 16000,
+  }) async {
+    final srcFile = File(srcPath);
+    final bytes = await srcFile.readAsBytes();
+    if (bytes.length < 44) return srcPath;
+
+    final header = ByteData.sublistView(bytes, 0, 44);
+    final srcRate = header.getUint32(24, Endian.little);
+    if (srcRate <= dstRate) return srcPath;
+
+    const bytesPerSample = 2; // 16-bit PCM
+    final dataSize = bytes.length - 44;
+    final numSamples = dataSize ~/ bytesPerSample;
+    final ratio = srcRate / dstRate;
+    final outCount = (numSamples / ratio).floor();
+
+    final srcData = ByteData.sublistView(bytes, 44);
+    final outData = ByteData(outCount * bytesPerSample);
+
+    for (var i = 0; i < outCount; i++) {
+      final srcPos = i * ratio;
+      final idx = srcPos.floor();
+      final frac = srcPos - idx;
+      final s0 = srcData.getInt16(idx * bytesPerSample, Endian.little);
+      final s1 = idx + 1 < numSamples
+          ? srcData.getInt16((idx + 1) * bytesPerSample, Endian.little)
+          : s0;
+      final sample =
+          (s0 * (1.0 - frac) + s1 * frac).round().clamp(-32768, 32767);
+      outData.setInt16(i * bytesPerSample, sample, Endian.little);
+    }
+
+    final dstPath = srcPath.replaceAll('.wav', '_ds.wav');
+    final writer = WavWriter(dstPath, sampleRate: dstRate, numChannels: 1);
+    await writer.open();
+    writer.writeChunk(outData.buffer.asUint8List());
+    await writer.close();
+    return dstPath;
+  }
 }
