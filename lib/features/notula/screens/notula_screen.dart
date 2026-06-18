@@ -80,13 +80,18 @@ class NotulaScreen extends ConsumerWidget {
 
     final meeting = meetingAsync.valueOrNull;
 
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) context.go('/riwayat');
+      },
+      child: Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(bottom: false, child: Column(children: [
         // Header
         Container(color: AppColors.surface, padding: const EdgeInsets.fromLTRB(16,12,16,12),
           child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-            GestureDetector(onTap: () => context.pop(),
+            GestureDetector(onTap: () => context.go('/riwayat'),
               child: Container(width:32, height:32,
                 decoration: BoxDecoration(color: AppColors.background, shape: BoxShape.circle,
                     border: Border.all(color: AppColors.borderMedium)),
@@ -282,7 +287,7 @@ class NotulaScreen extends ConsumerWidget {
         ),
       ])),
       bottomNavigationBar: const AppBottomNav(currentIndex: 0),
-    );
+    ));
   }
 }
 
