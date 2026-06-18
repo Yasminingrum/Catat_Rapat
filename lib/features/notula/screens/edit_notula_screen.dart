@@ -7,6 +7,7 @@ import '../../../core/constants/app_text_styles.dart';
 import '../../../core/localization/app_strings.dart';
 import '../../../core/models/meeting_model.dart';
 import '../../../core/providers/meeting_provider.dart';
+import '../../../core/utils/date_formatter.dart';
 import '../../../core/utils/snackbar_util.dart';
 import '../../../core/widgets/app_button.dart';
 import '../../../core/widgets/app_bottom_nav.dart';
@@ -41,6 +42,30 @@ class _EditNotulaScreenState extends ConsumerState<EditNotulaScreen> {
     }
     for (var m in _actionCtrls) { m['text']!.dispose(); m['pic']!.dispose(); m['deadline']!.dispose(); }
     super.dispose();
+  }
+
+  Future<void> _pickDeadline(TextEditingController ctrl) async {
+    final initial = DateFormatter.parseDate(ctrl.text) ?? DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: const ColorScheme.light(
+            primary: AppColors.primary,
+            onPrimary: Colors.white,
+            surface: AppColors.surface,
+          ),
+        ),
+        child: child!,
+      ),
+    );
+    if (picked != null) {
+      ctrl.text = DateFormatter.formatDate(picked);
+      setState(() {});
+    }
   }
 
   Future<void> _save() async {
@@ -198,10 +223,23 @@ class _EditNotulaScreenState extends ConsumerState<EditNotulaScreen> {
                   const SizedBox(width:16),
                   Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Text(s.editNotulaDeadlineLabel, style: AppTextStyles.label()),
-                    TextFormField(controller: e.value['deadline'], style: AppTextStyles.bodyMd(),
-                        decoration: InputDecoration(hintText: s.editNotulaDateHint,
-                            hintStyle: AppTextStyles.bodyMd(c: AppColors.textDisabled),
-                            border: InputBorder.none, contentPadding: EdgeInsets.zero)),
+                    GestureDetector(
+                      onTap: () => _pickDeadline(e.value['deadline']!),
+                      behavior: HitTestBehavior.opaque,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Row(children: [
+                          const Icon(Icons.calendar_today_rounded, size: 16, color: AppColors.primary),
+                          const SizedBox(width: 6),
+                          Expanded(child: Text(
+                            e.value['deadline']!.text.isEmpty ? s.editNotulaDateHint : e.value['deadline']!.text,
+                            style: e.value['deadline']!.text.isEmpty
+                                ? AppTextStyles.bodyMd(c: AppColors.textDisabled)
+                                : AppTextStyles.bodyMd(),
+                          )),
+                        ]),
+                      ),
+                    ),
                   ])),
                 ]),
               ]))),

@@ -82,6 +82,20 @@ class SupabaseService {
   Future<void> resendSignupOtp(String email) =>
       _client.auth.resend(type: OtpType.signup, email: email);
 
+  /// Mengecek apakah email sudah terdaftar di tabel profiles.
+  Future<bool> checkEmailExists(String email) async {
+    try {
+      final res = await _client.functions.invoke(
+        'check-email',
+        body: {'email': email},
+      );
+      if (res.status != 200) return true;
+      return (res.data as Map<String, dynamic>)['exists'] as bool? ?? true;
+    } catch (_) {
+      return true;
+    }
+  }
+
   /// Mengirim kode OTP reset password (recovery) ke email.
   Future<void> resetPasswordForEmail(String email) =>
       _client.auth.resetPasswordForEmail(email);

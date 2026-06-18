@@ -145,6 +145,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<bool> sendPasswordResetOtp(String email) async {
     state = state.copyWith(isLoading: true, error: null, message: null);
     try {
+      final exists = await _supa.checkEmailExists(email);
+      if (!exists) {
+        state = state.copyWith(
+          isLoading: false,
+          error: 'Email ini belum terdaftar. Silakan daftar terlebih dahulu.',
+        );
+        return false;
+      }
       await _supa.resetPasswordForEmail(email);
       state = state.copyWith(isLoading: false);
       return true;

@@ -64,8 +64,9 @@ Return ONLY valid JSON in this format:
 {
   "ringkasan": "2-4 sentence narrative summary",
   "keputusan": [{"id": 1, "text": "first decision"}, ...],
-  "action_items": [{"id": 1, "text": "task description", "assignee": "PIC name or empty", "deadline": "date or empty", "status": "pending"}, ...]
-}`
+  "action_items": [{"id": 1, "text": "task description", "assignee": "PIC name or empty string", "deadline": "deadline date if mentioned (e.g. '28 May'), or empty string if none", "status": "pending"}, ...]
+}
+IMPORTANT: Always extract deadline dates from the discussion into the "deadline" field. Do not leave it empty if a date or timeframe was mentioned for the task.`
       : `Kamu adalah AI asisten notulis rapat profesional.
 Analisis transkripsi di bawah ini dan buat notula terstruktur dalam Bahasa Indonesia.
 
@@ -78,8 +79,9 @@ Kembalikan HANYA JSON valid dengan format:
 {
   "ringkasan": "ringkasan naratif 2-4 kalimat",
   "keputusan": [{"id": 1, "text": "keputusan pertama"}, ...],
-  "action_items": [{"id": 1, "text": "deskripsi tugas", "assignee": "nama PIC atau kosong", "deadline": "tanggal atau kosong", "status": "pending"}, ...]
-}`;
+  "action_items": [{"id": 1, "text": "deskripsi tugas", "assignee": "nama PIC atau string kosong", "deadline": "tanggal deadline jika disebutkan (contoh: '28 Mei'), atau string kosong jika tidak ada", "status": "pending"}, ...]
+}
+PENTING: Selalu ekstrak tanggal deadline dari pembahasan ke field "deadline". Jangan biarkan kosong jika ada tanggal atau tenggat waktu yang disebutkan untuk tugas tersebut.`;
 
     // ── Panggil OpenAI GPT ───────────────────────────────────
     const gptResp = await fetch("https://api.openai.com/v1/chat/completions", {

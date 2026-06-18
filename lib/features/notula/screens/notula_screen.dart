@@ -218,19 +218,25 @@ class NotulaScreen extends ConsumerWidget {
                             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                               Text(e.value.text, style: AppTextStyles.bodyMd(w: FontWeight.w500)),
                               if (e.value.assignee.isNotEmpty || e.value.deadline.isNotEmpty) ...[
-                                const SizedBox(height:2),
-                                Row(children: [
+                                const SizedBox(height:4),
+                                Wrap(spacing: 8, runSpacing: 4, children: [
                                   if (e.value.assignee.isNotEmpty)
                                     Text('→ ${e.value.assignee}',
                                         style: AppTextStyles.caption(c: AppColors.primary, w: FontWeight.w600)),
-                                  if (e.value.assignee.isNotEmpty && e.value.deadline.isNotEmpty)
-                                    const SizedBox(width: 10),
-                                  if (e.value.deadline.isNotEmpty) ...[
-                                    const Icon(Icons.calendar_today_outlined, size: 11, color: AppColors.textTertiary),
-                                    const SizedBox(width: 4),
-                                    Text(e.value.deadline,
-                                        style: AppTextStyles.caption(c: AppColors.textTertiary, w: FontWeight.w600)),
-                                  ],
+                                  if (e.value.deadline.isNotEmpty)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: const BoxDecoration(
+                                        color: AppColors.warningLight,
+                                        borderRadius: AppRadius.sm,
+                                      ),
+                                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                                        const Icon(Icons.calendar_today_rounded, size: 12, color: AppColors.warning),
+                                        const SizedBox(width: 4),
+                                        Text(e.value.deadline,
+                                            style: AppTextStyles.caption(c: AppColors.warning, w: FontWeight.w600)),
+                                      ]),
+                                    ),
                                 ]),
                               ],
                             ])),
