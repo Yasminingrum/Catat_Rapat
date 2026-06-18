@@ -34,6 +34,10 @@ dependencies:
   # Audio recording
   record: ^6.2.1
 
+  # Keep screen awake & background recording
+  wakelock_plus: ^1.2.8
+  flutter_foreground_task: ^8.10.3
+
   # Audio playback
   just_audio: ^0.9.38
 

@@ -6,12 +6,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_spacing.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/localization/app_strings.dart';
 import '../../../core/services/pending_recording_service.dart';
 import '../../../core/services/realtime_transcription_service.dart';
+import '../../../core/services/recording_foreground_service.dart';
 import '../../../core/utils/snackbar_util.dart';
 import '../../../core/utils/wav_writer.dart';
 
@@ -73,6 +75,9 @@ class _RecordingScreenState extends ConsumerState<RecordingScreen>
       }
       return;
     }
+
+    WakelockPlus.enable();
+    startRecordingForegroundService();
 
     final dir = await getApplicationDocumentsDirectory();
     final path = '${dir.path}/recording_${DateTime.now().millisecondsSinceEpoch}.wav';
@@ -152,6 +157,8 @@ class _RecordingScreenState extends ConsumerState<RecordingScreen>
     await _wavWriter?.close();
     await _liveTranscription.disconnect();
     _stopAll();
+    WakelockPlus.disable();
+    stopRecordingForegroundService();
     if (!mounted) return;
 
     if (_recordingPath != null) {
@@ -187,6 +194,8 @@ class _RecordingScreenState extends ConsumerState<RecordingScreen>
     _pulseController.dispose();
     _recorder.dispose();
     _liveTranscription.dispose();
+    WakelockPlus.disable();
+    stopRecordingForegroundService();
     super.dispose();
   }
 
@@ -228,6 +237,8 @@ class _RecordingScreenState extends ConsumerState<RecordingScreen>
                       await _wavWriter?.close();
                       await _liveTranscription.disconnect();
                       _stopAll();
+                      WakelockPlus.disable();
+                      stopRecordingForegroundService();
                       if (context.mounted) {
                         context.pop();
                         context.pop();
