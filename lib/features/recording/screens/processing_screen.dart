@@ -102,11 +102,20 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen>
       }
 
       if (_uploadedAudioPath == null && widget.filePath != null) {
-        // Downsample 24kHz → 16kHz untuk mengurangi ukuran file ~33%
-        // sebelum upload ke Supabase Storage.
+        // Downsample 24kHz → 16kHz untuk mengurangi ukuran file ~33%.
+        // Jika masih >50MB (rekaman >26 menit), downsample lagi ke 8kHz
+        // agar Edge Function Whisper tidak kehabisan memori.
         String uploadPath = widget.filePath!;
         if (uploadPath.endsWith('.wav')) {
-          uploadPath = await WavWriter.downsample(uploadPath);
+          uploadPath = await WavWriter.downsample(uploadPath);           // 24k→16k
+          final sz = await File(uploadPath).length();
+          if (sz > 50 * 1024 * 1024) {
+            final path8k = await WavWriter.downsample(uploadPath, dstRate: 8000); // 16k→8k
+            if (path8k != uploadPath) {
+              try { await File(uploadPath).delete(); } catch (_) {}
+              uploadPath = path8k;
+            }
+          }
         }
         _uploadedAudioPath = await SupabaseService.instance
             .uploadAudio(meeting.id, uploadPath);
@@ -116,7 +125,7 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen>
             'audio_path': _uploadedAudioPath,
           });
         }
-        // Hapus file downsampled sementara.
+        // Hapus file sementara hasil downsample.
         if (uploadPath != widget.filePath!) {
           try { await File(uploadPath).delete(); } catch (_) {}
         }
